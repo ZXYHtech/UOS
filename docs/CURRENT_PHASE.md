@@ -60,11 +60,12 @@ Implemented in `tools/canonical_publish.py`:
 
 - latest-canonical fetch/build/push transaction;
 - branch-independent explicit canonical target;
+- Repository Identity remote/branch verification when an identity anchor exists;
 - non-force ref update only;
 - ref-race rebuild/retry from latest canonical state;
 - create-if-absent transaction for unique Claim creation;
 - expected-blob CAS for fenced replacement;
-- multi-path atomic publish + path deletion for completion/release;
+- multi-path atomic publish + expected-blob-protected deletion for completion/release;
 - default target no-clobber conflict detection.
 
 Regression coverage:
@@ -84,7 +85,11 @@ Regression coverage:
 - two clones racing for one Claim produce exactly one winner;
 - completion can publish output + `.done` + Claim deletion atomically;
 - stale expected-blob replacement is fenced;
-- same-path conflicting content is not clobbered.
+- same-path conflicting content is not clobbered;
+- unchecked deletion is refused;
+- wrong canonical remote is refused when Repository Identity is present.
+
+The hardened CAS suite passes **7/7** in local bare-remote / multi-clone execution.
 
 `python tools/selftest.py` is the single regression entrypoint.
 
@@ -107,7 +112,7 @@ Do not begin AI_book integration or generic multi-repository orchestration until
 | 2. Project creation | CODE/TEST PASS | `project init` exists; same-working-tree publication is serialized. |
 | 3. Task publication without ownership | CODE/TEST PASS | Regression verifies publish creates catalog work but no Claim/Done. |
 | 4. Ordinary project lifecycle | PASS | QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW. |
-| 5. Claim/Lease/Fencing/Recovery | CAS PRIMITIVE PASS / INTEGRATION PARTIAL | Same-working-tree lifecycle is tested and the new canonical Git transaction primitive passes independent-clone/bare-remote CAS tests. Default `uos.py` lifecycle commands still need to use that transport before this gate is fully closed. |
+| 5. Claim/Lease/Fencing/Recovery | CAS PRIMITIVE PASS / INTEGRATION PARTIAL | Same-working-tree lifecycle is tested and the hardened canonical Git transaction primitive passes 7/7 independent-clone/bare-remote CAS tests. Default `uos.py` lifecycle commands still need to use that transport before this gate is fully closed. |
 | 6. Inspectable status | CODE/TEST PASS | `status` / derived `TASK_STATUS.csv` and `STATUS.json` are implemented. |
 
 ## Current blocker to phase closure
