@@ -1,0 +1,26 @@
+SchemaVersion: REPOSITORY_IDENTITY_V1
+RepositoryInstanceID: UOS-ZXYHTECH-UOS-001
+IdentityEpoch: 1
+
+Canonical:
+  Provider: GITHUB
+  RepositoryID: 1352643529
+  Repository: ZXYHtech/UOS
+  DefaultBranch: main
+  CanonicalRef: refs/heads/main
+
+Governance:
+  AuthorityModel: UPSTREAM_CANONICAL_V1
+  KernelAuthorityRequiresCanonicalInstance: true
+  CanonicalTaskAuthorityRequiresCanonicalInstance: true
+  DerivedCopyDefaultMode: CONTRIBUTOR
+  ForcePushAllowed: false
+
+Portability:
+  ForkMayRetainIdentityFile: true
+  StandaloneReuseMustReinitializeIdentity: true
+  LocalCopyWithoutRemoteIsCanonical: false
+  LocatorRenameMayUseStableRepositoryID: true
+
+Notes:
+  Purpose: Canonical identity for the standalone upstream UOS repository. Consumer projects must not inherit canonical UOS authority merely by copying this file.
