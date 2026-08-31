@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import secrets
@@ -25,7 +26,7 @@ import shutil
 import sys
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 TASK_FIELDS = [
     "id", "priority", "status", "role", "title", "deps", "inputs", "output",
@@ -63,6 +64,36 @@ def safe_id(value: str, label: str = "id") -> str:
     return value
 
 
+def safe_repo_path(value: str, label: str = "path") -> str:
+    """Reject absolute or traversal paths for SAME_REPOSITORY pilot objects."""
+    raw = (value or "").strip().replace("\\", "/")
+    if not raw:
+        raise UOSError(f"empty {label}")
+    path = PurePosixPath(raw)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise UOSError(f"{label} must stay inside repository: {value!r}")
+    return str(path)
+
+
+def safe_repo_path_list(value: str, label: str, *, allow_empty: bool = True) -> str:
+    items = [item.strip() for item in (value or "").split(";") if item.strip()]
+    if not items:
+        if allow_empty:
+            return ""
+        raise UOSError(f"at least one {label} is required")
+    return ";".join(safe_repo_path(item, label) for item in items)
+
+
+def atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+    try:
+        temp.write_text(content, encoding="utf-8")
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
 def parse_scalar_file(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     if not path.exists():
@@ -76,8 +107,7 @@ def parse_scalar_file(path: Path) -> dict[str, str]:
 
 
 def write_kv(path: Path, values: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(f"{k}: {v}\n" for k, v in values.items()), encoding="utf-8")
+    atomic_write_text(path, "".join(f"{k}: {v}\n" for k, v in values.items()))
 
 
 def read_catalog(path: Path) -> list[dict[str, str]]:
@@ -88,12 +118,12 @@ def read_catalog(path: Path) -> list[dict[str, str]]:
 
 
 def write_catalog(path: Path, rows: list[dict[str, str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=TASK_FIELDS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({key: row.get(key, "") for key in TASK_FIELDS})
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=TASK_FIELDS)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: row.get(key, "") for key in TASK_FIELDS})
+    atomic_write_text(path, buffer.getvalue())
 
 
 def project_dirs(root: Path) -> list[tuple[dict[str, str], Path]]:
@@ -171,29 +201,30 @@ def reconcile(root: Path) -> dict[str, object]:
     status_fields = [
         "id", "project_id", "priority", "role", "title", "effective_status", "deps", "output"
     ]
-    with (runtime / "TASK_STATUS.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=status_fields)
-        writer.writeheader()
-        for row in sorted(
-            rows,
-            key=lambda item: (
-                item.get("project_id", ""),
-                int(item.get("priority") or 9999),
-                item["id"],
-            ),
-        ):
-            writer.writerow(
-                {
-                    "id": row.get("id", ""),
-                    "project_id": row.get("project_id", ""),
-                    "priority": row.get("priority", ""),
-                    "role": row.get("role", ""),
-                    "title": row.get("title", ""),
-                    "effective_status": states[row["id"]],
-                    "deps": row.get("deps", ""),
-                    "output": row.get("output", ""),
-                }
-            )
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=status_fields)
+    writer.writeheader()
+    for row in sorted(
+        rows,
+        key=lambda item: (
+            item.get("project_id", ""),
+            int(item.get("priority") or 9999),
+            item["id"],
+        ),
+    ):
+        writer.writerow(
+            {
+                "id": row.get("id", ""),
+                "project_id": row.get("project_id", ""),
+                "priority": row.get("priority", ""),
+                "role": row.get("role", ""),
+                "title": row.get("title", ""),
+                "effective_status": states[row["id"]],
+                "deps": row.get("deps", ""),
+                "output": row.get("output", ""),
+            }
+        )
+    atomic_write_text(runtime / "TASK_STATUS.csv", buffer.getvalue())
 
     summary: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -211,8 +242,9 @@ def reconcile(root: Path) -> dict[str, object]:
         "scope": "SAME_REPOSITORY_ONLY",
         "projects": summary,
     }
-    (runtime / "STATUS.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    atomic_write_text(
+        runtime / "STATUS.json",
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
     )
     return payload
 
@@ -249,7 +281,8 @@ class RepoMutex:
 
 def command_boot(_args: argparse.Namespace) -> int:
     root = repo_root()
-    payload = reconcile(root)
+    with RepoMutex(root):
+        payload = reconcile(root)
     payload["repository_root"] = str(root)
     payload["commands"] = [
         "project init", "task publish", "status", "claim", "renew", "complete", "reconcile"
@@ -262,24 +295,25 @@ def command_project_init(args: argparse.Namespace) -> int:
     root = repo_root()
     project_id = safe_id(args.project_id, "project id")
     directory = root / "orchestration/projects" / project_id
-    if directory.exists():
-        raise UOSError(f"project exists: {project_id}")
-    directory.mkdir(parents=True)
-    title = json.dumps(args.title, ensure_ascii=False)
-    goal = json.dumps(args.goal or args.title, ensure_ascii=False)
-    (directory / "PROJECT.yaml").write_text(
-        "Schema: UOS_PROJECT_V1\n"
-        f"ProjectID: {project_id}\n"
-        f"Title: {title}\n"
-        "State: ACTIVE\n"
-        f"IntentVersion: {project_id}_INTENT_V1\n"
-        "RepositoryMode: SAME_REPOSITORY\n"
-        f"WorkRoot: projects/{project_id}\n"
-        f"Goal: {goal}\n",
-        encoding="utf-8",
-    )
-    write_catalog(directory / "TASK_CATALOG.csv", [])
-    reconcile(root)
+    with RepoMutex(root):
+        if directory.exists():
+            raise UOSError(f"project exists: {project_id}")
+        directory.mkdir(parents=True)
+        title = json.dumps(args.title, ensure_ascii=False)
+        goal = json.dumps(args.goal or args.title, ensure_ascii=False)
+        atomic_write_text(
+            directory / "PROJECT.yaml",
+            "Schema: UOS_PROJECT_V1\n"
+            f"ProjectID: {project_id}\n"
+            f"Title: {title}\n"
+            "State: ACTIVE\n"
+            f"IntentVersion: {project_id}_INTENT_V1\n"
+            "RepositoryMode: SAME_REPOSITORY\n"
+            f"WorkRoot: projects/{project_id}\n"
+            f"Goal: {goal}\n",
+        )
+        write_catalog(directory / "TASK_CATALOG.csv", [])
+        reconcile(root)
     print(project_id)
     return 0
 
@@ -288,46 +322,50 @@ def command_task_publish(args: argparse.Namespace) -> int:
     root = repo_root()
     project_id = safe_id(args.project, "project id")
     task_id = safe_id(args.task_id, "task id")
+    output = safe_repo_path_list(args.output, "output path", allow_empty=False)
+    inputs = safe_repo_path_list(args.inputs or "", "input path", allow_empty=True)
     catalog = root / "orchestration/projects" / project_id / "TASK_CATALOG.csv"
-    if not catalog.exists():
-        raise UOSError(f"unknown project: {project_id}")
-    current = all_tasks(root)
-    if any(row["id"] == task_id for row in current):
-        raise UOSError(f"duplicate task id: {task_id}")
-    deps = [item for item in (args.deps or "").split(";") if item]
-    known = {row["id"] for row in current}
-    missing = [item for item in deps if item not in known]
-    if missing:
-        raise UOSError(f"unknown dependencies: {missing}")
 
-    row = {field: "" for field in TASK_FIELDS}
-    row.update(
-        {
-            "id": task_id,
-            "priority": str(args.priority),
-            "status": "READY" if not deps else "BLOCKED",
-            "role": args.role,
-            "title": args.title,
-            "deps": ";".join(deps),
-            "inputs": args.inputs or "",
-            "output": args.output,
-            "project_id": project_id,
-            "phase": args.phase,
-            "workstream": args.workstream,
-            "exclusive_keys": args.exclusive_key or f"PROJECT:{project_id}:{task_id}",
-            "size_class": args.size,
-            "quality_tier": "STANDARD",
-            "risk_tier": "LOW",
-            "acceptance": args.acceptance,
-            "compliance_profile": "SOFTWARE_V1",
-            "min_capability_tier": str(args.min_capability),
-            "context_class": args.context,
-        }
-    )
-    rows = read_catalog(catalog)
-    rows.append(row)
-    write_catalog(catalog, rows)
-    reconcile(root)
+    with RepoMutex(root):
+        if not catalog.exists():
+            raise UOSError(f"unknown project: {project_id}")
+        current = all_tasks(root)
+        if any(row["id"] == task_id for row in current):
+            raise UOSError(f"duplicate task id: {task_id}")
+        deps = [item for item in (args.deps or "").split(";") if item]
+        known = {row["id"] for row in current}
+        missing = [item for item in deps if item not in known]
+        if missing:
+            raise UOSError(f"unknown dependencies: {missing}")
+
+        row = {field: "" for field in TASK_FIELDS}
+        row.update(
+            {
+                "id": task_id,
+                "priority": str(args.priority),
+                "status": "READY" if not deps else "BLOCKED",
+                "role": args.role,
+                "title": args.title,
+                "deps": ";".join(deps),
+                "inputs": inputs,
+                "output": output,
+                "project_id": project_id,
+                "phase": args.phase,
+                "workstream": args.workstream,
+                "exclusive_keys": args.exclusive_key or f"PROJECT:{project_id}:{task_id}",
+                "size_class": args.size,
+                "quality_tier": "STANDARD",
+                "risk_tier": "LOW",
+                "acceptance": args.acceptance,
+                "compliance_profile": "SOFTWARE_V1",
+                "min_capability_tier": str(args.min_capability),
+                "context_class": args.context,
+            }
+        )
+        rows = read_catalog(catalog)
+        rows.append(row)
+        write_catalog(catalog, rows)
+        reconcile(root)
     print(task_id)
     return 0
 
@@ -424,7 +462,8 @@ def command_complete(args: argparse.Namespace) -> int:
         if args.task not in rows:
             raise UOSError("unknown task")
         row = rows[args.task]
-        outputs = [item for item in (row.get("output") or "").split(";") if item]
+        output_spec = safe_repo_path_list(row.get("output") or "", "declared output", allow_empty=True)
+        outputs = [item for item in output_spec.split(";") if item]
         missing = [item for item in outputs if not (root / item).exists()]
         if missing and not args.allow_missing_output:
             raise UOSError(f"missing declared outputs: {missing}")
@@ -459,7 +498,9 @@ def command_complete(args: argparse.Namespace) -> int:
 
 
 def command_status(args: argparse.Namespace) -> int:
-    payload = reconcile(repo_root())
+    root = repo_root()
+    with RepoMutex(root):
+        payload = reconcile(root)
     if args.project:
         projects = payload["projects"]
         assert isinstance(projects, dict)
@@ -469,7 +510,10 @@ def command_status(args: argparse.Namespace) -> int:
 
 
 def command_reconcile(_args: argparse.Namespace) -> int:
-    print(json.dumps(reconcile(repo_root()), ensure_ascii=False, indent=2))
+    root = repo_root()
+    with RepoMutex(root):
+        payload = reconcile(root)
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
