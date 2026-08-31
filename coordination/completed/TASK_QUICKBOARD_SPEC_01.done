@@ -1,0 +1,10 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_QUICKBOARD_SPEC_01
+ProjectID: QUICKBOARD
+AgentID: AGENT-GPT56SOL-UOS-PILOT-20260901-001
+LeaseGeneration: 1
+LeaseToken: 7f03300b0b489d6dda27ee35f623aa8e
+CompletedAt: 2026-08-31T17:13:06Z
+Result: PASS
+Output: projects/QUICKBOARD/SPEC.md
+Acceptance: Screen layout, card data model, interactions, persistence, accessibility minimum, exact file plan and zero-dependency boundary are defined.
