@@ -19,7 +19,9 @@ Every successful transaction is built from the latest fetched canonical branch a
 ```text
 fetch latest origin/main
         ↓
-validate preconditions against that commit
+verify canonical repository identity / branch
+        ↓
+validate transaction preconditions against latest main
         ↓
 build a new tree from that exact base
         ↓
@@ -33,6 +35,8 @@ ref race?
 ```
 
 Never force-push and never rebase a stale candidate's derived decisions onto a newer canonical state.
+
+If `.uos/REPOSITORY_IDENTITY.yaml` exists, the publisher verifies the requested target branch and the selected remote against its `Canonical.DefaultBranch` and `Canonical.Repository` before writing.
 
 ## Supported transaction semantics
 
@@ -61,7 +65,7 @@ python tools/canonical_publish.py \
   --message "renew TASK_X"
 ```
 
-A stale Agent cannot replace a lock after another generation has changed its canonical blob.
+A stale Agent cannot replace a lock after another generation has changed its canonical blob. Replacement of different canonical content requires both an explicit expected blob and `--allow-replace`.
 
 ### 3. Atomic completion + lock release
 
@@ -78,6 +82,8 @@ python tools/canonical_publish.py \
 
 The output, completion fact and ownership release become visible together or not at all.
 
+**Every deletion requires an expected canonical blob.** An unchecked `--delete-path` is refused, so a stale completion cannot delete a newer Agent's Lock.
+
 ### 4. Disjoint concurrent writes
 
 When two clones publish different paths from the same base, one push may win first. The loser fetches the new canonical head, rebuilds its candidate from that head and retries. Both paths are preserved.
@@ -88,9 +94,14 @@ For a published path:
 
 - canonical path absent → create;
 - canonical blob equals local blob → idempotent no-op;
-- canonical blob differs → `TARGET_PATH_CONFLICT`, unless the caller supplied an expected canonical blob and explicitly enabled replacement.
+- canonical blob differs → `TARGET_PATH_CONFLICT`, unless the caller supplied the current expected canonical blob and explicitly enabled replacement.
 
-This prevents a retry from silently overwriting another Agent's result.
+For a deleted path:
+
+- deletion is refused unless the caller supplies the exact expected canonical blob;
+- if that blob changed before publication, the transaction is fenced by `EXPECTED_BLOB_MISMATCH`.
+
+This prevents retries from silently overwriting or deleting another Agent's result.
 
 ## Regression evidence
 
@@ -100,9 +111,11 @@ This prevents a retry from silently overwriting another Agent's result.
 2. two clones racing for one create-if-absent Claim produce exactly one winner;
 3. output + `.done` + Claim deletion are one completion transaction;
 4. expected-blob fencing rejects a stale replacement;
-5. conflicting writes to the same path do not clobber canonical content.
+5. conflicting writes to the same path do not clobber canonical content;
+6. deletion without an expected blob is rejected;
+7. a repository identity anchor pointing at a different canonical remote is rejected.
 
-These tests were also executed in the current isolated environment against local Git/bare repositories and passed 5/5 before the files were committed.
+The hardened suite was executed in the current isolated environment against local Git/bare repositories and passed **7/7**.
 
 ## One-command regression
 
