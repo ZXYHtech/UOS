@@ -1,0 +1,9 @@
+Schema: UOS_CLAIM_V1
+CanonicalID: TASK_QUICKBOARD_DOCS_01
+ProjectID: QUICKBOARD
+AgentID: AGENT-GPT56SOL-UOS-PILOT-20260901-001
+LeaseGeneration: 1
+LeaseToken: 8c79b4ec644014c2020d0fbfd5abf61d
+ClaimedAt: 2026-08-31T17:18:25Z
+LeaseExpiresAt: 2026-08-31T18:48:25Z
+FencingToken: 1:8c79b4ec644014c2020d0fbfd5abf61d
