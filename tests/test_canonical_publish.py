@@ -182,6 +182,39 @@ class CanonicalPublishTests(unittest.TestCase):
             self.assertEqual(failed.returncode, 2)
             self.assertIn("TARGET_PATH_CONFLICT", failed.stderr)
 
+    def test_delete_requires_expected_blob(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            remote = setup_remote(td)
+            worker = td / "worker"
+            clone(remote, worker)
+            failed = run_pub(
+                worker,
+                "--delete-path", "README.md",
+                "--message", "unsafe delete",
+                check=False,
+            )
+            self.assertEqual(failed.returncode, 2)
+            self.assertIn("DELETE_REQUIRES_EXPECTED_BLOB", failed.stderr)
+
+    def test_repository_identity_rejects_wrong_remote(self):
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            remote = setup_remote(td)
+            worker = td / "worker"
+            clone(remote, worker)
+            anchor = worker / ".uos/REPOSITORY_IDENTITY.yaml"
+            anchor.parent.mkdir(parents=True, exist_ok=True)
+            anchor.write_text(
+                "Canonical:\n"
+                "  Repository: https://github.com/example/not-this-repo\n"
+                "  DefaultBranch: main\n"
+            )
+            (worker / "x.txt").write_text("x\n")
+            failed = run_pub(worker, "--path", "x.txt", "--message", "wrong target", check=False)
+            self.assertEqual(failed.returncode, 2)
+            self.assertIn("NONCANONICAL_TARGET", failed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
