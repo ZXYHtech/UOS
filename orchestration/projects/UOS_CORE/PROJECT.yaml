@@ -1,0 +1,14 @@
+Schema: UOS_PROJECT_V1
+ProjectID: UOS_CORE
+Title: UOS Core — standalone single-repository orchestration kernel
+State: ACTIVE
+IntentVersion: UOS_CORE_SINGLE_REPO_V1
+RepositoryMode: SAME_REPOSITORY
+WorkRoot: projects/UOS_CORE
+Goal: Extract, validate and improve the standalone UOS kernel while the operator-approved phase remains single-repository only.
+NonGoals:
+  - No AI_book project dispatch
+  - No cross-repository task routing
+  - No multi-repository orchestration activation
+OperatorPhaseRef: docs/CURRENT_PHASE.md
+KernelGuide: docs/SINGLE_REPO_KERNEL.md
