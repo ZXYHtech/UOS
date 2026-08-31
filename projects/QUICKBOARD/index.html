@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="QuickBoard：一个零依赖、离线可用的浏览器任务看板。">
+  <title>QuickBoard</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <p class="eyebrow">UOS single-repository pilot</p>
+        <h1>QuickBoard</h1>
+        <p class="subtitle">一个小巧、离线可用的个人任务看板。</p>
+      </div>
+
+      <div class="header-actions">
+        <dl class="board-summary" aria-label="任务概览">
+          <div>
+            <dt>待办</dt>
+            <dd data-count="todo">0</dd>
+          </div>
+          <div>
+            <dt>进行中</dt>
+            <dd data-count="in-progress">0</dd>
+          </div>
+          <div>
+            <dt>已完成</dt>
+            <dd data-count="done">0</dd>
+          </div>
+        </dl>
+        <button class="button button-primary" id="new-task-button" type="button">＋ 新建任务</button>
+      </div>
+    </header>
+
+    <main class="board" aria-label="QuickBoard 任务看板">
+      <section class="board-column" aria-labelledby="todo-heading">
+        <header class="column-header">
+          <div>
+            <p class="column-kicker">01</p>
+            <h2 id="todo-heading">待办</h2>
+          </div>
+          <span class="column-count" data-count="todo" aria-label="待办任务数量">0</span>
+        </header>
+        <div class="card-list" data-column="todo" aria-label="待办任务列表"></div>
+        <p class="empty-state" data-empty="todo">暂无待办任务。点击“新建任务”开始。</p>
+      </section>
+
+      <section class="board-column" aria-labelledby="progress-heading">
+        <header class="column-header">
+          <div>
+            <p class="column-kicker">02</p>
+            <h2 id="progress-heading">进行中</h2>
+          </div>
+          <span class="column-count" data-count="in-progress" aria-label="进行中任务数量">0</span>
+        </header>
+        <div class="card-list" data-column="in-progress" aria-label="进行中任务列表"></div>
+        <p class="empty-state" data-empty="in-progress">这里还没有进行中的任务。</p>
+      </section>
+
+      <section class="board-column" aria-labelledby="done-heading">
+        <header class="column-header">
+          <div>
+            <p class="column-kicker">03</p>
+            <h2 id="done-heading">已完成</h2>
+          </div>
+          <span class="column-count" data-count="done" aria-label="已完成任务数量">0</span>
+        </header>
+        <div class="card-list" data-column="done" aria-label="已完成任务列表"></div>
+        <p class="empty-state" data-empty="done">完成的任务会出现在这里。</p>
+      </section>
+    </main>
+
+    <footer class="footer-note">
+      <span class="status-dot" aria-hidden="true"></span>
+      数据仅保存在当前浏览器的 localStorage 中，不会上传到服务器。
+    </footer>
+  </div>
+
+  <dialog id="task-dialog" aria-labelledby="dialog-title">
+    <form id="task-form" method="dialog" novalidate>
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Task editor</p>
+          <h2 id="dialog-title">新建任务</h2>
+        </div>
+        <button class="icon-button" type="button" id="dialog-close" aria-label="关闭编辑窗口">×</button>
+      </div>
+
+      <input id="task-id" type="hidden">
+
+      <div class="form-field">
+        <label for="task-title">任务标题 <span aria-hidden="true">*</span></label>
+        <input id="task-title" name="title" type="text" maxlength="120" autocomplete="off" required aria-describedby="title-help title-error">
+        <div class="field-meta">
+          <small id="title-help">最多 120 个字符</small>
+          <small class="field-error" id="title-error" role="alert"></small>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="task-description">描述</label>
+        <textarea id="task-description" name="description" rows="5" maxlength="1000" aria-describedby="description-help"></textarea>
+        <small id="description-help">可选，最多 1000 个字符</small>
+      </div>
+
+      <div class="form-field">
+        <label for="task-status">状态</label>
+        <select id="task-status" name="status">
+          <option value="todo">待办</option>
+          <option value="in-progress">进行中</option>
+          <option value="done">已完成</option>
+        </select>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="button button-secondary" id="dialog-cancel" type="button">取消</button>
+        <button class="button button-primary" type="submit">保存任务</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p id="board-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></p>
+</body>
+</html>
