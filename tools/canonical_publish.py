@@ -60,6 +60,57 @@ def normalize_repo_path(root: Path, value: str) -> str:
     return norm
 
 
+def flatten_simple_yaml(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    stack: list[tuple[int, str]] = []
+    if not path.exists():
+        return out
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#") or ":" not in raw:
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        key, value = raw.strip().split(":", 1)
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        prefix = ".".join(item[1] for item in stack)
+        full = f"{prefix}.{key}" if prefix else key
+        value = value.strip().strip('"').strip("'")
+        if value:
+            out[full] = value
+        else:
+            stack.append((indent, key))
+    return out
+
+
+def normalize_locator(value: str) -> str:
+    text = (value or "").strip().rstrip("/")
+    if text.startswith("git@github.com:"):
+        text = "https://github.com/" + text[len("git@github.com:"):]
+    if text.startswith("ssh://git@github.com/"):
+        text = "https://github.com/" + text[len("ssh://git@github.com/"):]
+    if text.endswith(".git"):
+        text = text[:-4]
+    return text.lower()
+
+
+def verify_identity(root: Path, remote: str, branch: str) -> None:
+    identity_path = root / ".uos/REPOSITORY_IDENTITY.yaml"
+    if not identity_path.exists():
+        return
+    identity = flatten_simple_yaml(identity_path)
+    expected_repo = normalize_locator(identity.get("Canonical.Repository", ""))
+    expected_branch = (identity.get("Canonical.DefaultBranch") or "main").strip()
+    if expected_branch and branch != expected_branch:
+        raise PublishError(f"NONCANONICAL_BRANCH: requested={branch} expected={expected_branch}")
+    if expected_repo:
+        remote_url = git(["remote", "get-url", remote], cwd=root).stdout.strip()
+        actual_repo = normalize_locator(remote_url)
+        if actual_repo != expected_repo:
+            raise PublishError(
+                f"NONCANONICAL_TARGET: remote={actual_repo or remote_url} expected={expected_repo}"
+            )
+
+
 def mode_for(path: Path) -> str:
     if path.is_symlink():
         return "120000"
@@ -122,6 +173,7 @@ def publish(
 ) -> str:
     if retries < 1 or retries > 50:
         raise PublishError("retries must be 1..50")
+    verify_identity(root, remote, branch)
     publish_paths = [normalize_repo_path(root, value) for value in paths]
     delete_paths = [normalize_repo_path(root, value) for value in deletes]
     absent_paths = [normalize_repo_path(root, value) for value in require_absent]
@@ -129,6 +181,9 @@ def publish(
         raise PublishError("DUPLICATE_PATH")
     if set(publish_paths) & set(delete_paths):
         raise PublishError("PATH_PUBLISH_DELETE_CONFLICT")
+    unchecked_deletes = [rel for rel in delete_paths if rel not in expect_blobs]
+    if unchecked_deletes:
+        raise PublishError(f"DELETE_REQUIRES_EXPECTED_BLOB: {unchecked_deletes}")
     if not publish_paths and not delete_paths:
         raise PublishError("EMPTY_TRANSACTION")
 
@@ -157,7 +212,7 @@ def publish(
             if old_blob is None or old_blob == new_blob:
                 changed = changed or old_blob is None
                 continue
-            if not allow_replace and rel not in expect_blobs:
+            if not allow_replace or rel not in expect_blobs:
                 raise PublishError(f"TARGET_PATH_CONFLICT: {rel}")
             changed = True
         for rel in delete_paths:
