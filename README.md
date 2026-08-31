@@ -2,33 +2,43 @@
 
 > 从一句目标开始，把项目拆成可发布、可领取、可恢复、可审查的任务，并让不同数量级的 Agent 在 Git 上协同推进。
 
+## 当前阶段：先跑通单仓项目
+
+`ZXYHtech/UOS` 当前只做 **single-repository pilot**。
+
+现阶段 UOS 只管理存放在本仓库内部的项目、任务和产物；**不调度 AI_book，不向 AI_book 写入任务，不做跨仓项目运行态同步，也不启动多仓调度。** 详细边界见 `docs/CURRENT_PHASE.md`。
+
+第一项普通试验项目是 `QUICKBOARD`：一个零依赖浏览器任务看板。它用于验证 UOS 是否能在自己的仓库里完成“创建项目 -> 发布任务 -> Agent 领取 -> 执行 -> Review -> 完成”的完整闭环。
+
 ## 定位
 
-`ZXYHtech/UOS` 是 UOS 调度系统的 **canonical 上游仓库**。
+`ZXYHtech/UOS` 是 UOS 调度系统的独立开发与验证仓库。
 
-AI_book 不再作为 UOS 的永久宿主，而作为 UOS 的一个 reference workload / consumer。后续 UOS Kernel 的通用改进优先在本仓库完成、验证、版本化，再同步到 AI_book；AI_book 中发现的通用修复先回灌 UOS，再由固定版本同步回 AI_book。
+长期目标是让 UOS 成为跨项目、跨仓库的通用 Agent 调度控制面，但该能力**不是当前阶段目标**。只有单仓项目闭环通过并得到新的 operator 决策后，才进入外部仓库与多仓调度阶段。
 
-## 当前基线
+## 当前基线来源
 
-从 AI_book 中独立出来的基线以以下已验证能力为准：
+独立 UOS 的内核基线来源于 AI_book 中已经验证的 UOS：
 
 - Protocol baseline: `V2.26`
 - UOS baseline: `UOS_V1.11`
 - ExecutionEpoch: `UOS_EXEC_20260830_01`
-- Provider-neutral: `YES`
-- Minimum runtime: `git + python3`
+- Provider-neutral target: `YES`
+- Minimum runtime target: `git + python3`
 - Normal lifecycle: `Boot -> Claim -> Work -> Renew -> Complete -> Reconcile -> Next Task`
 - GitHub Actions: optional adapter, not a required runtime
 - Bare Git / Local Git: supported target
 - Canonical ownership: Grant + Lock + Lease + Fencing
 - Canonical writes: latest-state non-force/CAS transaction
 
-## 目标形态
+这些能力仍需要从 AI_book 中抽取成真正可在本仓库独立运行的 Kernel；在 standalone acceptance 通过前，不宣称 UOS 仓库已经完全具备生产调度能力。
+
+## 当前目标形态
 
 ```text
 一句目标 / 新需求
       ↓
-Project Init / Intent
+UOS 仓库内 Project Init / Intent
       ↓
 Task Plan + Task Catalog
       ↓
@@ -40,32 +50,39 @@ Work / Review / Revision
       ↓
 Complete / Reconcile
       ↓
-New task / Pivot / Spawn / Reopen
+继续下一个任务
 ```
 
-UOS 本身也作为 `UOS_CORE` 项目运行：它可以在自己的仓库中发布 UOS 优化任务，让 Agent 领取并持续改进 UOS。
+当前所有 project runtime 和 project output 都留在 `ZXYHtech/UOS` 内。
 
-## 仓库关系
+## 当前项目
 
 ```text
-ZXYHtech/UOS                 <- UOS Kernel canonical upstream
-  ├─ kernel / orchestration
-  ├─ generic tools
-  ├─ project templates
-  ├─ UOS_CORE self-hosted tasks
-  └─ version + sync manifest
+UOS_CORE
+  └─ 抽取独立 Kernel、项目发布能力、单仓验收
 
-ZXYHtech/AI_book             <- reference workload / consumer
-  ├─ AI_BOOK project data
-  ├─ book/game/research outputs
-  └─ pinned UOS snapshot
+QUICKBOARD
+  └─ 第一个普通业务试验项目
+     ├─ SPEC
+     ├─ UI
+     ├─ LOGIC
+     ├─ DOCS
+     └─ REVIEW
 ```
 
-**只同步通用 Kernel，不同步项目运行态。** Claims、Grants、Done、Runtime、AI_book 任务和内容属于各仓库自己的 canonical state，禁止跨仓复制。
+## 以后再做
 
-## 独立化状态
+单仓闭环稳定之后，再单独开启下一阶段：
 
-当前仓库已经完成“独立上游仓库初始化”，接下来按 `docs/EXTRACTION_AND_SYNC.md` 逐步搬迁通用 Kernel 和工具。在完整 standalone acceptance 通过前，本 README 不宣称本仓库已经取代 AI_book 中正在运行的 UOS 实例。
+```text
+UOS Control Plane
+   ├─ Repository A / Project A
+   ├─ Repository B / Project B
+   ├─ Repository C / Project C
+   └─ ...
+```
+
+到那时才研究 repository adapter、跨仓任务发现、跨仓 ownership 边界、故障隔离、统一项目视图等能力。
 
 ## 设计原则
 
@@ -77,8 +94,8 @@ ZXYHtech/AI_book             <- reference workload / consumer
 6. Kernel is domain-neutral; project quality/content rules are adapters.
 7. Weak Agents should be able to work with minimal context.
 8. Kernel upgrades are serialized; project work can scale in parallel.
-9. Runtime state is repository-local; only versioned Kernel artifacts synchronize.
-10. UOS must be able to schedule and improve UOS itself.
+9. Runtime state is repository-local.
+10. Prove one-repository operation before introducing multi-repository orchestration.
 
 ## License
 
