@@ -24,18 +24,35 @@ PROJECT COMPLETED ✅
 
 试跑证据和发现见 `docs/PILOT_RESULT_QUICKBOARD.md`。
 
+## 先运行自检
+
+最低环境：`git + Python 3`。
+
+```bash
+python tools/selftest.py
+```
+
+这会执行：
+
+- 同一工作树的 Project / Task / Claim / Lease / Fencing / Complete 生命周期回归；
+- 临时 bare Git + 多个独立 clone 的 latest-canonical CAS 回归。
+
+CAS 设计与边界见 `docs/CANONICAL_GIT_CAS.md`。
+
 ## 现在怎么用
 
-最低环境：Python 3 标准库。当前 Pilot 面向**同一个仓库工作树**，不是跨仓/多 clone 调度器。
+### 模式 A：当前普通项目入口（同一个仓库工作树）
 
-### 1. 查看 UOS
+当前 `tools/uos.py` 是已经跑通 QUICKBOARD 的主入口。它现在仍以**同一个仓库工作树**为默认拓扑。
+
+#### 1. 查看 UOS
 
 ```bash
 python tools/uos.py boot
 python tools/uos.py status
 ```
 
-### 2. 创建一个新项目
+#### 2. 创建一个新项目
 
 ```bash
 python tools/uos.py project init \
@@ -53,7 +70,7 @@ orchestration/projects/DEMO/TASK_CATALOG.csv
 
 创建项目本身不会制造 Claim 或 Done。
 
-### 3. 发布任务
+#### 3. 发布任务
 
 ```bash
 python tools/uos.py task publish \
@@ -81,7 +98,7 @@ python tools/uos.py task publish \
 
 `task publish` 只发布任务。**发布 ≠ 领取，Request/Task ≠ Ownership。**
 
-### 4. Agent 领取任务
+#### 4. Agent 领取任务
 
 ```bash
 python tools/uos.py claim \
@@ -101,7 +118,7 @@ python tools/uos.py claim \
 
 只有当前有效 Claim 才代表 ownership。
 
-### 5. 工作时间较长时续租
+#### 5. 工作时间较长时续租
 
 ```bash
 python tools/uos.py renew \
@@ -112,7 +129,7 @@ python tools/uos.py renew \
 
 旧 owner、旧 token 或已过期 Lease 会被 fencing 拒绝。
 
-### 6. 完成任务
+#### 6. 完成任务
 
 Agent 先创建任务声明的 output，然后：
 
@@ -125,7 +142,7 @@ python tools/uos.py complete \
 
 完成入口会再次验证当前 owner/token 和声明输出；成功后创建 `.done`、释放 Claim，并重新计算依赖状态。
 
-### 7. 查看项目状态
+#### 7. 查看项目状态
 
 ```bash
 python tools/uos.py status --project DEMO
@@ -137,6 +154,27 @@ python tools/uos.py status --project DEMO
 coordination/runtime/TASK_STATUS.csv
 coordination/runtime/STATUS.json
 ```
+
+### 模式 B：多 clone canonical Git CAS（底层事务原语）
+
+UOS 现在新增：
+
+```text
+tools/canonical_publish.py
+```
+
+它已经在临时 bare Git remote + 独立 clones 上验证：
+
+- latest-main non-force publish；
+- ref race 后从最新 main 重建；
+- create-if-absent Claim 唯一赢家；
+- expected-blob fencing；
+- output + `.done` + Claim 删除原子 completion；
+- same-path no-clobber；
+- 删除必须带 expected blob；
+- `.uos/REPOSITORY_IDENTITY.yaml` 存在时验证 canonical remote / branch。
+
+**注意：它现在是底层 transport primitive，不是一个新的“多仓调度入口”。** 普通 Agent 暂时不要绕过 `tools/uos.py` 自己拼 Claim / Complete。下一步工作是把这层 CAS transport 正式集成到 `uos project/task/claim/renew/complete/reconcile`。
 
 ## 当前内核能力
 
@@ -155,13 +193,29 @@ coordination/runtime/STATUS.json
 - 原子 runtime/catalog 写入
 - 仓库内路径约束，拒绝绝对路径和 `../` 逃逸
 
-回归测试位于：
+当前 `tools/canonical_publish.py` 已包含：
+
+- latest-canonical Git transaction
+- explicit canonical main target
+- non-force push only
+- ref-race retry from latest main
+- require-absent CAS
+- expected-blob CAS
+- atomic multi-path publish + fenced delete
+- Repository Identity target verification
+
+回归入口：
+
+```bash
+python tools/selftest.py
+```
+
+对应测试：
 
 ```text
 tests/test_single_repo_pilot.py
+tests/test_canonical_publish.py
 ```
-
-覆盖生命周期、发布不产生 ownership、并发发布、10 Agent 抢单任务唯一 owner、Lease 过期 reclaim/fencing、仓库路径逃逸拒绝等。
 
 ## 定位
 
@@ -179,29 +233,28 @@ tests/test_single_repo_pilot.py
 - provider-neutral target: `git + python3`
 - lifecycle target: `Boot -> Claim -> Work -> Renew -> Complete -> Reconcile -> Next Task`
 - GitHub Actions should remain optional
-- canonical ownership semantics: Grant/Claim + Lock + Lease + Fencing
+- canonical ownership semantics: Claim + Lock + Lease + Fencing
 - distributed target: latest-canonical non-force/CAS Git transaction
 
-注意：当前 standalone Pilot 已经能完成同仓项目，但还没有重新集成并验证完整的**多 clone latest-canonical Git CAS**。因此不能把 QUICKBOARD 成功误读成“多仓调度已经完成”。
+当前 standalone Pilot 已经重新建立并验证了**独立的多 clone Git CAS 事务原语**，但该事务层尚未完全并入默认 `tools/uos.py` 生命周期。因此不能把 CAS primitive 的成功误读成“多仓调度已经完成”。
 
 ## 当前项目
 
 ```text
 UOS_CORE
-  └─ 继续加固独立 Kernel、验证、后续提取 Git CAS
+  └─ 单仓 Kernel
+     ├─ QUICKBOARD 闭环 ✅
+     ├─ same-working-tree lifecycle ✅
+     ├─ multi-clone CAS primitive ✅
+     └─ CAS lifecycle integration ⏳
 
 QUICKBOARD
-  └─ COMPLETED
-     ├─ SPEC
-     ├─ UI
-     ├─ LOGIC
-     ├─ DOCS
-     └─ REVIEW
+  └─ COMPLETED ✅
 ```
 
 ## 以后再做
 
-单仓闭环稳定之后，并且由 operator 明确开启下一阶段，才考虑：
+只有单仓闭环稳定，并且由 operator 明确开启下一阶段，才考虑：
 
 ```text
 UOS Control Plane
@@ -211,7 +264,7 @@ UOS Control Plane
    └─ ...
 ```
 
-届时再研究 repository adapter、跨仓任务发现、跨仓 ownership、Git CAS、故障隔离和统一项目视图。
+届时再引入 repository adapter、跨仓任务发现、跨仓 ownership、故障隔离和统一项目视图；不会把当前 CAS primitive 直接当作多仓调度器。
 
 ## 设计原则
 
