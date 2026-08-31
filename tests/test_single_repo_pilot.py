@@ -139,6 +139,53 @@ class SingleRepoPilotTests(unittest.TestCase):
             status = json.loads(run(root, "status", "--project", "NEWPROJ").stdout)
             self.assertEqual(status["projects"]["NEWPROJ"]["ready"], 1)
 
+    def test_concurrent_task_publish_preserves_both_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "orchestration").mkdir()
+            run(root, "project", "init", "--project-id", "PUB", "--title", "Publish race")
+            base = [sys.executable, str(UOS), "task", "publish", "--project", "PUB"]
+            procs = [
+                subprocess.Popen(
+                    base + [
+                        "--task-id", f"TASK_PUB_{i}",
+                        "--title", f"Task {i}",
+                        "--output", f"projects/PUB/out{i}.txt",
+                        "--acceptance", "exists",
+                    ],
+                    cwd=root,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                for i in range(2)
+            ]
+            results = [proc.communicate() + (proc.returncode,) for proc in procs]
+            self.assertEqual([item[2] for item in results], [0, 0], results)
+            rows = list(csv.DictReader((root / "orchestration/projects/PUB/TASK_CATALOG.csv").open(encoding="utf-8")))
+            self.assertEqual({row["id"] for row in rows}, {"TASK_PUB_0", "TASK_PUB_1"})
+
+    def test_publish_rejects_paths_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "orchestration").mkdir()
+            run(root, "project", "init", "--project-id", "SAFE", "--title", "Safe paths")
+            escaped = run(
+                root,
+                "task",
+                "publish",
+                "--project", "SAFE",
+                "--task-id", "TASK_ESCAPE",
+                "--title", "Escape",
+                "--output", "../outside.txt",
+                "--acceptance", "must reject",
+                check=False,
+            )
+            self.assertEqual(escaped.returncode, 2)
+            self.assertIn("must stay inside repository", escaped.stderr)
+            rows = list(csv.DictReader((root / "orchestration/projects/SAFE/TASK_CATALOG.csv").open(encoding="utf-8")))
+            self.assertEqual(rows, [])
+
     def test_ten_contenders_create_one_owner(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
