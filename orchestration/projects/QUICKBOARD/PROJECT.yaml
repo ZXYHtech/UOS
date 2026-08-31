@@ -1,0 +1,22 @@
+Schema: UOS_PROJECT_V1
+ProjectID: QUICKBOARD
+Title: QuickBoard — zero-dependency browser task board
+State: ACTIVE
+IntentVersion: QUICKBOARD_INTENT_V1
+RepositoryMode: SAME_REPOSITORY
+WorkRoot: projects/QUICKBOARD
+Goal: Build a small polished offline-capable browser Kanban board using only HTML CSS and JavaScript so UOS can prove it can manage a normal project end-to-end inside its own repository.
+NonGoals:
+  - No AI_book dependency
+  - No cross-repository writes
+  - No backend service
+  - No framework or package manager requirement
+AcceptanceSummary:
+  - Opens directly in a modern browser
+  - Create edit move and delete cards
+  - Todo In Progress Done columns
+  - State persists with localStorage
+  - Responsive readable interface
+  - README explains usage
+  - Review verifies behavior and basic accessibility
+OperatorPhaseRef: docs/CURRENT_PHASE.md
