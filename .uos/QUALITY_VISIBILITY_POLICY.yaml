@@ -5,6 +5,7 @@ Enabled: true
 
 Review:
   WarmupRequired: 3
+  WarmupMaxConcurrentClaims: 1
   SampleEvery: 5
   HighRiskAlwaysReview: true
   BlockNewClaimsWhilePending: true
@@ -25,4 +26,5 @@ Preview:
 
 Notes:
   RuleEpoch must increment whenever review or preview rules materially change.
-  The first three completion events of a new RuleEpoch require operator confirmation before new claims continue.
+  During the first three reviewed completions of a RuleEpoch only one task Claim may be active at a time.
+  Each of those three results must be presented to and confirmed by the operator before the next new Claim.
