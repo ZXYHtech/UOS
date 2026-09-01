@@ -1,146 +1,181 @@
 # Canonical Git CAS — standalone single-repository transport
 
-Status: `PILOT_VALIDATED_PRIMITIVE`  
+Status: `LIFECYCLE_INTEGRATED_TEST_PENDING`  
 Scope: one UOS repository, potentially many independent clones/worktrees  
-Entrypoint: `python tools/canonical_publish.py`
+Primary entrypoint: `python tools/uos.py`  
+Low-level primitive: `python tools/canonical_publish.py`
 
 ## Purpose
 
-The first QUICKBOARD pilot proved UOS lifecycle correctness inside one shared working tree. A repository-local mutex is sufficient for that topology, but it cannot arbitrate independent clones.
+QUICKBOARD first proved UOS lifecycle correctness inside one shared working tree. The next requirement is to let several Agents operate from independent clones of the **same UOS repository** while Git remains the canonical arbiter.
 
-`tools/canonical_publish.py` adds the next transport layer without enabling multi-repository project orchestration. It lets several Agents work from separate clones of the **same UOS repository** while Git remains the canonical arbiter.
+The design is extracted from the proven AI_book latest-canonical/Main Ref Gate idea, but the standalone implementation intentionally omits AI_book-specific project namespaces, historical Grant compatibility, workflow dependencies and runtime history.
 
-The design is extracted from the already-proven AI_book Main Ref Gate / latest-canonical transaction model, but intentionally omits AI_book-specific Project Namespace, Grant compatibility, PathAuthority and provider workflow assumptions.
+This does **not** enable multi-repository orchestration. It only changes how several clones of this one repository agree on canonical state.
 
-## Invariant
+## Two layers
 
-Every successful transaction is built from the latest fetched canonical branch and advances it by a normal non-force update.
+### 1. `tools/canonical_publish.py`
+
+Low-level explicit-path CAS primitive:
+
+- latest canonical fetch;
+- Repository Identity remote / branch gate;
+- non-force push only;
+- create-if-absent;
+- expected-blob replacement;
+- expected-blob-protected deletion;
+- multi-path tree transaction;
+- default no-clobber;
+- ref-race rebuild/retry.
+
+The hardened primitive suite passed **7/7** against temporary bare Git remotes and independent clones.
+
+### 2. `tools/canonical_runner.py`
+
+High-level lifecycle integration used by `tools/uos.py` in `git-cas` mode.
+
+Each attempt does:
 
 ```text
 fetch latest origin/main
         ↓
-verify canonical repository identity / branch
+verify canonical identity / branch
         ↓
-validate transaction preconditions against latest main
+create isolated detached worktree at exact main@X
         ↓
-build a new tree from that exact base
+run complete deterministic UOS command locally
         ↓
-commit-tree -p <latest-main>
+produce candidate tree
         ↓
-normal push to refs/heads/main
+normal non-force push to main
         ↓
 ref race?
-  yes → discard candidate, fetch latest, rebuild
   no  → canonical fact
+  yes → throw away candidate/worktree
+        fetch new main@Y
+        rerun the whole UOS command from Y
 ```
 
-Never force-push and never rebase a stale candidate's derived decisions onto a newer canonical state.
+The key distinction is that a race causes **re-execution**, not stale candidate re-parenting.
 
-If `.uos/REPOSITORY_IDENTITY.yaml` exists, the publisher verifies the requested target branch and the selected remote against its `Canonical.DefaultBranch` and `Canonical.Repository` before writing.
+## Why lifecycle replay matters
 
-## Supported transaction semantics
+For source-of-truth commands such as Project Init, Task Publish, Claim, Renew and Complete, replay means all preconditions are reevaluated against latest canonical state.
 
-### 1. Create-if-absent
+For derived `reconcile` state, replay is mandatory:
 
-Use for a new canonical Claim or other append-only object:
+```text
+main@X → calculate runtime-X
+             ↓
+          push loses race
+             ↓
+main@Y → discard runtime-X
+             ↓
+          recalculate runtime-Y
+```
+
+A stale derived view is never rebased onto newer main.
+
+## `tools/uos.py` transport selection
+
+```text
+auto | local | git-cas
+```
+
+`auto` is the default:
+
+- no configured remote → local same-working-tree mode;
+- configured canonical remote → git-cas;
+- configured remote becomes unavailable → fail closed, never create local fallback ownership.
+
+Examples:
 
 ```bash
-python tools/canonical_publish.py \
-  --path coordination/claims/TASK_X.lock \
-  --require-absent coordination/claims/TASK_X.lock \
-  --message "claim TASK_X"
+python tools/uos.py claim --agent-id AGENT_001 --project DEMO
+python tools/uos.py --transport git-cas reconcile
+python tools/uos.py --transport local status
 ```
 
-If two clones race, only one can advance canonical history with the absent path. The loser refetches and then fails the `require-absent` precondition.
+## Completion transaction
 
-### 2. Expected-blob replacement
-
-Use for fenced replacement such as Renew/Reclaim:
+The Agent creates the declared task output in its own workspace, then runs:
 
 ```bash
-python tools/canonical_publish.py \
-  --path coordination/claims/TASK_X.lock \
-  --expect-blob coordination/claims/TASK_X.lock=<EXPECTED_BLOB_SHA> \
-  --allow-replace \
-  --message "renew TASK_X"
+python tools/uos.py complete \
+  --agent-id AGENT_001 \
+  --task TASK_X \
+  --lease-token <TOKEN>
 ```
 
-A stale Agent cannot replace a lock after another generation has changed its canonical blob. Replacement of different canonical content requires both an explicit expected blob and `--allow-replace`.
+The canonical runner:
 
-### 3. Atomic completion + lock release
+1. fetches latest canonical state;
+2. finds TASK_X's declared outputs from that canonical catalog;
+3. refuses to overwrite a different canonical artifact at the same output path;
+4. copies caller-owned output into the isolated snapshot;
+5. runs current owner/token/fencing checks there;
+6. creates `.done` and removes Claim;
+7. recomputes derived state;
+8. publishes the resulting tree in one canonical commit.
 
-A completion can publish all task-owned outputs and `.done` while deleting the Claim in the same Git tree transaction:
+Declared outputs are force-staged in the clean isolated worktree, so a `.gitignore` rule cannot produce a `.done` without its required artifact.
 
-```bash
-python tools/canonical_publish.py \
-  --path projects/DEMO/result.md \
-  --path coordination/completed/TASK_X.done \
-  --delete-path coordination/claims/TASK_X.lock \
-  --expect-blob coordination/claims/TASK_X.lock=<CURRENT_LOCK_BLOB_SHA> \
-  --message "complete TASK_X"
+## Repository Identity
+
+The standalone upstream identity anchors:
+
+```text
+Canonical.Repository: https://github.com/ZXYHtech/UOS
+Canonical.DefaultBranch: main
 ```
 
-The output, completion fact and ownership release become visible together or not at all.
+A different remote or branch is rejected before canonical mutation. Forks/independent installations must reinitialize identity rather than inheriting upstream authority.
 
-**Every deletion requires an expected canonical blob.** An unchecked `--delete-path` is refused, so a stale completion cannot delete a newer Agent's Lock.
+## Regression coverage
 
-### 4. Disjoint concurrent writes
+### Primitive suite
 
-When two clones publish different paths from the same base, one push may win first. The loser fetches the new canonical head, rebuilds its candidate from that head and retries. Both paths are preserved.
+`tests/test_canonical_publish.py` verifies:
 
-## Default no-clobber rule
+1. disjoint concurrent writes both survive;
+2. create-if-absent Claim has one winner;
+3. output + `.done` + Claim deletion are atomic;
+4. stale expected-blob replacement is fenced;
+5. same-path conflict does not clobber;
+6. unchecked deletion is refused;
+7. wrong canonical target is refused.
 
-For a published path:
+### Integrated lifecycle suite
 
-- canonical path absent → create;
-- canonical blob equals local blob → idempotent no-op;
-- canonical blob differs → `TARGET_PATH_CONFLICT`, unless the caller supplied the current expected canonical blob and explicitly enabled replacement.
+`tests/test_git_cas_lifecycle.py` verifies the actual `tools/uos.py` entrypoint for:
 
-For a deleted path:
+1. independent-clone unique Claim;
+2. complete + Claim release through auto transport;
+3. completion output that matches `.gitignore` is still canonical;
+4. concurrent task publication replays from latest catalog;
+5. reconcile main-ref race recomputes from the newer catalog;
+6. unchanged status is a canonical no-op;
+7. configured remote loss fails closed without local Claim fallback.
 
-- deletion is refused unless the caller supplies the exact expected canonical blob;
-- if that blob changed before publication, the transaction is fenced by `EXPECTED_BLOB_MISMATCH`.
-
-This prevents retries from silently overwriting or deleting another Agent's result.
-
-## Regression evidence
-
-`tests/test_canonical_publish.py` creates a temporary bare Git repository and independent clones. It verifies:
-
-1. two clones concurrently publishing disjoint paths preserve both results;
-2. two clones racing for one create-if-absent Claim produce exactly one winner;
-3. output + `.done` + Claim deletion are one completion transaction;
-4. expected-blob fencing rejects a stale replacement;
-5. conflicting writes to the same path do not clobber canonical content;
-6. deletion without an expected blob is rejected;
-7. a repository identity anchor pointing at a different canonical remote is rejected.
-
-The hardened suite was executed in the current isolated environment against local Git/bare repositories and passed **7/7**.
-
-## One-command regression
-
-From a checkout containing Git and Python 3:
+All suites are discovered by:
 
 ```bash
 python tools/selftest.py
 ```
 
-This runs both the same-working-tree lifecycle suite and the multi-clone CAS suite.
+## Evidence status
 
-## What this does not mean
+The low-level CAS primitive was executed against local bare Git and passed 7/7 before lifecycle integration.
 
-This primitive does **not** activate:
+The integrated lifecycle code and regression suite are now committed, but this chat runtime cannot resolve `github.com`, so a normal fresh-clone execution of the exact committed integrated version is still pending. Do not convert that missing execution evidence into a claimed PASS.
+
+## Still out of scope
 
 - AI_book dispatch;
-- external repository adapters;
-- one UOS controlling several project repositories;
-- cross-repository ownership;
-- provider-specific automation requirements.
+- external project repository adapters;
+- one UOS controlling several repositories;
+- cross-repository ownership/failure isolation;
+- provider-specific CI as a correctness requirement.
 
-It is still a single-repository capability: several clones may contend for the same repository's canonical main.
-
-## Remaining integration work
-
-`tools/uos.py` still uses the same-working-tree local mutex for its default `project/task/claim/renew/complete/reconcile` commands. The CAS primitive must next be integrated as the canonical transport for those lifecycle operations, with full-recompute-on-race for derived `reconcile` state.
-
-Until that integration is tested, the single-repository Exit Gate remains open and multi-repository work remains operator-blocked.
+The current target remains: **many Agents / many clones, one UOS repository, one canonical Git truth.**
