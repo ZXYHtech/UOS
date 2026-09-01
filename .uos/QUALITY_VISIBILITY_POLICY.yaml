@@ -1,0 +1,28 @@
+Schema: UOS_QUALITY_VISIBILITY_V1
+RuleVersion: VISIBILITY_V1
+RuleEpoch: 1
+Enabled: true
+
+Review:
+  WarmupRequired: 3
+  SampleEvery: 5
+  HighRiskAlwaysReview: true
+  BlockNewClaimsWhilePending: true
+
+Presentation:
+  AgentMustPresentResultInConversation: true
+  UserMustNotBeSentToRepositoryForRoutineInspection: true
+  CompletionSummaryRequired: true
+
+Preview:
+  AutoExpandTaskOutputs: true
+  RequireDeclaredOrInferredPreview: true
+  SvgToPng: true
+  HtmlToPng: true
+  PdfToPng: true
+  OfficeToPdf: true
+  CadEdaToPng: true
+
+Notes:
+  RuleEpoch must increment whenever review or preview rules materially change.
+  The first three completion events of a new RuleEpoch require operator confirmation before new claims continue.
