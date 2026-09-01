@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-"""UOS Single-Repository Pilot CLI.
+"""UOS standalone single-repository orchestration CLI.
 
-Current scope: one repository / one shared canonical working tree.
-No AI_book dispatch, cross-repository writes, or multi-repository routing.
+The deterministic state machine can run in two transports:
+- local: one shared working tree guarded by a repository-local mutex;
+- git-cas: latest-canonical isolated-worktree transactions for independent clones.
 
-Commands:
-  boot / status / reconcile
-  project init
-  task publish
-  claim / renew / complete
+`auto` is the default. A Git repository with the configured remote uses git-cas;
+a non-Git test/work directory uses local mode. A configured canonical remote that
+is temporarily unreachable never silently falls back to local ownership.
 
-The pilot keeps durable state in files and uses a repository-local atomic mutex
-for same-working-tree concurrency. Distributed multi-clone Git CAS remains a
-future phase gate; see docs/SINGLE_REPO_KERNEL.md.
+This repository still manages only projects stored inside the UOS repository.
+No AI_book dispatch or multi-repository routing is enabled here.
 """
 from __future__ import annotations
 
@@ -65,7 +63,6 @@ def safe_id(value: str, label: str = "id") -> str:
 
 
 def safe_repo_path(value: str, label: str = "path") -> str:
-    """Reject absolute or traversal paths for SAME_REPOSITORY pilot objects."""
     raw = (value or "").strip().replace("\\", "/")
     if not raw:
         raise UOSError(f"empty {label}")
@@ -107,7 +104,7 @@ def parse_scalar_file(path: Path) -> dict[str, str]:
 
 
 def write_kv(path: Path, values: dict[str, object]) -> None:
-    atomic_write_text(path, "".join(f"{k}: {v}\n" for k, v in values.items()))
+    atomic_write_text(path, "".join(f"{key}: {value}\n" for key, value in values.items()))
 
 
 def read_catalog(path: Path) -> list[dict[str, str]]:
@@ -194,6 +191,7 @@ def effective_states(root: Path) -> tuple[list[dict[str, str]], dict[str, str]]:
 
 
 def reconcile(root: Path) -> dict[str, object]:
+    """Build deterministic derived views from source-of-truth project/claim/done files."""
     rows, states = effective_states(root)
     runtime = root / "coordination/runtime"
     runtime.mkdir(parents=True, exist_ok=True)
@@ -238,19 +236,18 @@ def reconcile(root: Path) -> dict[str, object]:
 
     payload: dict[str, object] = {
         "schema": "UOS_SINGLE_REPO_STATUS_V1",
-        "generated_at": iso(),
         "scope": "SAME_REPOSITORY_ONLY",
         "projects": summary,
     }
     atomic_write_text(
         runtime / "STATUS.json",
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
     )
     return payload
 
 
 class RepoMutex:
-    """Short same-working-tree control-plane mutex for the pilot."""
+    """Short same-working-tree control-plane mutex used only by local transport."""
 
     def __init__(self, root: Path, timeout: float = 10.0):
         self.path = root / "coordination/runtime/.pilot_mutex"
@@ -283,11 +280,11 @@ def command_boot(_args: argparse.Namespace) -> int:
     root = repo_root()
     with RepoMutex(root):
         payload = reconcile(root)
-    payload["repository_root"] = str(root)
+    payload["repository_root"] = os.environ.get("UOS_CALLER_ROOT") or str(root)
     payload["commands"] = [
         "project init", "task publish", "status", "claim", "renew", "complete", "reconcile"
     ]
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
@@ -505,7 +502,7 @@ def command_status(args: argparse.Namespace) -> int:
         projects = payload["projects"]
         assert isinstance(projects, dict)
         payload["projects"] = {args.project: projects.get(args.project, {})}
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
@@ -513,12 +510,21 @@ def command_reconcile(_args: argparse.Namespace) -> int:
     root = repo_root()
     with RepoMutex(root):
         payload = reconcile(root)
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="uos")
+    parser.add_argument(
+        "--transport",
+        choices=["auto", "local", "git-cas"],
+        default=os.environ.get("UOS_TRANSPORT", "auto"),
+        help="auto uses canonical Git CAS when a remote is configured; local is test/single-worktree mode",
+    )
+    parser.add_argument("--remote", default=os.environ.get("UOS_REMOTE", "origin"))
+    parser.add_argument("--target-branch", default=os.environ.get("UOS_TARGET_BRANCH", "main"))
+    parser.add_argument("--cas-retries", type=int, default=int(os.environ.get("UOS_CAS_RETRIES", "8")))
     subs = parser.add_subparsers(dest="command", required=True)
 
     item = subs.add_parser("boot")
@@ -584,10 +590,36 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     try:
         args = build_parser().parse_args()
+        root = repo_root()
+        try:
+            from canonical_runner import CanonicalRunError, resolve_transport, run_canonical
+        except ModuleNotFoundError:
+            from tools.canonical_runner import CanonicalRunError, resolve_transport, run_canonical
+
+        mode = resolve_transport(root, args.transport, args.remote, args.target_branch)
+        if mode == "git-cas":
+            proc = run_canonical(
+                root,
+                list(sys.argv[1:]),
+                remote=args.remote,
+                branch=args.target_branch,
+                retries=args.cas_retries,
+            )
+            if proc.stdout:
+                print(proc.stdout, end="")
+            if proc.stderr:
+                print(proc.stderr, end="", file=sys.stderr)
+            return proc.returncode
         return args.func(args)
     except UOSError as exc:
         print(f"UOS_ERROR: {exc}", file=sys.stderr)
         return 2
+    except Exception as exc:
+        name = exc.__class__.__name__
+        if name in {"CanonicalRunError", "PublishError"}:
+            print(f"UOS_CAS_ERROR: {exc}", file=sys.stderr)
+            return 2
+        raise
 
 
 if __name__ == "__main__":
