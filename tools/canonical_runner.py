@@ -2,11 +2,11 @@
 """Run UOS lifecycle commands as latest-canonical Git transactions.
 
 This is the integration layer between the local deterministic `tools/uos.py`
-state machine and Git's canonical ref arbitration.  Each attempt gets a fresh
+state machine and Git's canonical ref arbitration. Each attempt gets a fresh
 snapshot of canonical main, runs the local state machine in an isolated detached
 worktree, and publishes the resulting tree with a normal non-force push.
 
-A ref race never reparents stale derived state.  The whole UOS command is rerun
+A ref race never reparents stale derived state. The whole UOS command is rerun
 from the newer canonical snapshot.
 """
 from __future__ import annotations
@@ -45,7 +45,7 @@ def remote_exists(root: Path, remote: str) -> bool:
 def resolve_transport(root: Path, requested: str, remote: str, branch: str) -> str:
     """Resolve auto transport without unsafe network-failure fallback.
 
-    A repository with a configured canonical remote uses Git CAS.  If that
+    A repository with a configured canonical remote uses Git CAS. If that
     remote later becomes unreachable, the command fails; it never silently
     drops to a local mutex and creates a second ownership truth.
     """
@@ -182,7 +182,10 @@ def _candidate_from_worktree(snapshot: Path, base: str, message: str) -> str | N
     status = git(["status", "--porcelain", "--untracked-files=all"], cwd=snapshot).stdout
     if not status.strip():
         return None
-    git(["add", "-A"], cwd=snapshot)
+    # The worktree is freshly materialized from canonical main and Python bytecode
+    # is disabled, so force-add is safe here and prevents declared outputs that
+    # match .gitignore from producing a canonical `.done` without the artifact.
+    git(["add", "-A", "-f"], cwd=snapshot)
     tree = git(["write-tree"], cwd=snapshot).stdout.strip()
     base_tree = git(["rev-parse", f"{base}^{{tree}}"], cwd=snapshot).stdout.strip()
     if tree == base_tree:
@@ -241,6 +244,7 @@ def run_canonical(
 
             env = os.environ.copy()
             env["UOS_INTERNAL_LOCAL"] = "1"
+            env["UOS_CALLER_ROOT"] = str(caller_root)
             env["PYTHONDONTWRITEBYTECODE"] = "1"
             proc = subprocess.run(
                 [sys.executable, str(worktree / "tools/uos.py"), "--transport", "local", *local_argv],
