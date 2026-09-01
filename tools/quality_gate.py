@@ -163,6 +163,10 @@ def event_path(root: Path, task_id: str) -> Path:
     return root / "coordination/quality/events" / f"{task_id}.json"
 
 
+def done_path(root: Path, task_id: str) -> Path:
+    return root / "coordination/completed" / f"{task_id}.done"
+
+
 def _events(root: Path) -> list[dict[str, Any]]:
     base = root / "coordination/quality/events"
     out: list[dict[str, Any]] = []
@@ -195,8 +199,19 @@ def blocking_events(root: Path, project: str = "") -> list[dict[str, Any]]:
     return blocked
 
 
-def claim_block_packet(root: Path, project: str = "") -> dict[str, Any] | None:
+def claim_block_packet(root: Path, project: str = "", task_id: str = "") -> dict[str, Any] | None:
     blocked = blocking_events(root, project)
+    if task_id:
+        # A rejected task is explicitly allowed to reclaim itself for correction.
+        # Other pending/rejected reviews still block unrelated work so the project
+        # cannot silently run ahead while a visible defect is unresolved.
+        blocked = [
+            item for item in blocked
+            if not (
+                str(item.get("task", "")) == task_id
+                and str(item.get("review_status", "")).upper() == "REJECTED"
+            )
+        ]
     if not blocked:
         return None
     return {
@@ -228,6 +243,17 @@ def record_completion(root: Path, task_id: str) -> dict[str, Any] | None:
         try:
             data = json.loads(existing.read_text(encoding="utf-8"))
             if isinstance(data, dict):
+                if str(data.get("review_status", "")).upper() == "REJECTED":
+                    data["attempt"] = int(data.get("attempt", 1) or 1) + 1
+                    data["outputs"] = outputs
+                    data["previews"] = previews
+                    data["review_required"] = True
+                    data["review_reason"] = "REVISION_RECHECK"
+                    data["review_status"] = "PENDING"
+                    data["completed_at"] = iso_now()
+                    data.pop("reviewed_at", None)
+                    data.pop("reviewed_by", None)
+                    existing.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
                 return data
         except Exception:
             pass
@@ -252,6 +278,7 @@ def record_completion(root: Path, task_id: str) -> dict[str, Any] | None:
         "rule_version": policy["rule_version"],
         "rule_epoch": policy["rule_epoch"],
         "sequence": sequence,
+        "attempt": 1,
         "task": task_id,
         "project": row.get("project_id", ""),
         "title": row.get("title", ""),
@@ -279,6 +306,7 @@ def presentation_packet(event: dict[str, Any], original: dict[str, Any] | None =
     packet["quality_visibility"] = {
         "rule_epoch": event.get("rule_epoch"),
         "sequence": event.get("sequence"),
+        "attempt": event.get("attempt", 1),
         "review_required": event.get("review_required"),
         "review_reason": event.get("review_reason"),
         "review_status": event.get("review_status"),
@@ -311,7 +339,9 @@ def _review_update(root: Path, task_id: str, decision: str, reviewer: str, feedb
     except ModuleNotFoundError:
         from tools.canonical_publish import PublishError, blob_at, publish, verify_identity
 
-    if _git(["rev-parse", "--git-dir"], root, check=False).returncode != 0 or _git(["remote", "get-url", remote], root, check=False).returncode != 0:
+    is_git = _git(["rev-parse", "--git-dir"], root, check=False).returncode == 0
+    has_remote = _git(["remote", "get-url", remote], root, check=False).returncode == 0 if is_git else False
+    if not is_git or not has_remote:
         path = event_path(root, task_id)
         if not path.exists():
             raise QualityGateError(f"review event not found: {task_id}")
@@ -322,6 +352,8 @@ def _review_update(root: Path, task_id: str, decision: str, reviewer: str, feedb
         if feedback:
             data["feedback"] = feedback
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if decision == "REJECTED":
+            done_path(root, task_id).unlink(missing_ok=True)
         return data
 
     try:
@@ -353,12 +385,22 @@ def _review_update(root: Path, task_id: str, decision: str, reviewer: str, feedb
         if feedback:
             data["feedback"] = feedback
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        expected_blobs = {rel: expected}
+        deletes: list[str] = []
+        if decision == "REJECTED":
+            done_rel = str(done_path(worktree, task_id).relative_to(worktree))
+            done_blob = blob_at(worktree, base, done_rel)
+            if done_blob:
+                expected_blobs[done_rel] = done_blob
+                deletes.append(done_rel)
+
         publish(
             worktree,
             paths=[rel],
-            deletes=[],
+            deletes=deletes,
             require_absent=[],
-            expect_blobs={rel: expected},
+            expect_blobs=expected_blobs,
             message=f"quality review {decision.lower()} {task_id}",
             remote=remote,
             branch=branch,
