@@ -1,6 +1,6 @@
 # TASK_UOS_STANDALONE_KERNEL_EXPORT_01 — progress record
 
-Status: **IN PROGRESS — implementation integrated, final execution evidence pending**  
+Status: **IN PROGRESS — implementation integrated, final execution + visible-result evidence pending**  
 Project: `UOS_CORE`  
 Phase: `SINGLE_REPOSITORY_VALIDATION`
 
@@ -35,11 +35,11 @@ This state machine completed QUICKBOARD through SPEC → UI/LOGIC → DOCS → R
 
 ### Same-working-tree transport
 
-`local` mode retains the repository-local mutex used by the first pilot and by isolated unit tests.
+`local` mode retains the repository-local mutex used by the first pilot and isolated unit tests.
 
 ### Latest-canonical Git transport
 
-`tools/uos.py` now exposes:
+`tools/uos.py` exposes:
 
 ```text
 --transport auto | local | git-cas
@@ -47,11 +47,12 @@ This state machine completed QUICKBOARD through SPEC → UI/LOGIC → DOCS → R
 
 `auto` selects Git-CAS when a remote is configured. A configured remote that becomes unreachable fails closed rather than creating a local fallback Claim.
 
-`tools/canonical_runner.py` integrates the whole lifecycle with canonical Git:
+`tools/canonical_runner.py` integrates the lifecycle with canonical Git:
 
 ```text
 fetch latest main
 → isolated detached worktree
+→ apply current quality / preview gate
 → rerun full UOS command
 → candidate tree/commit
 → non-force push
@@ -65,7 +66,7 @@ This integrates Project Init, Task Publish, Claim, Renew, Complete, Status and R
 
 A main-ref race never re-parents stale runtime. The entire local reconcile command is re-executed from the newer canonical snapshot.
 
-Derived `STATUS.json` is now deterministic and does not include a changing generated-at timestamp, so unchanged status can be a canonical no-op.
+Derived `STATUS.json` is deterministic and does not contain timestamp-only churn.
 
 ### Completion correctness
 
@@ -73,12 +74,105 @@ Git-CAS completion:
 
 - reads declared output paths from latest canonical Task Catalog;
 - copies caller-owned outputs into the isolated snapshot;
-- refuses a different pre-existing canonical artifact at the same output path;
+- refuses unrelated conflicting canonical artifacts;
 - rechecks Claim owner/token/fencing on latest canonical state;
 - creates `.done`, releases Claim and recomputes derived state in the same candidate tree;
 - force-stages declared artifacts inside the clean isolated worktree so `.gitignore` cannot produce a `.done` without its output.
 
-### Lower-level CAS primitive
+## Quality Visibility RuleEpoch 1
+
+The operator added a new anti-drift rule during this extraction task.
+
+Policy:
+
+```text
+.uos/QUALITY_VISIBILITY_POLICY.yaml
+```
+
+Detailed specification:
+
+```text
+docs/QUALITY_VISIBILITY_GATE.md
+```
+
+Runtime:
+
+```text
+tools/quality_gate.py
+```
+
+### Rule-change warmup
+
+Current RuleEpoch is `1`.
+
+Before normal parallel execution resumes:
+
+```text
+Task result 1
+  → Agent shows result + previews in conversation
+  → operator confirms
+  → only then Task result 2 may start
+
+Task result 2
+  → show + confirm
+  → only then Task result 3 may start
+
+Task result 3
+  → show + confirm
+  → warmup closes
+```
+
+`WarmupMaxConcurrentClaims = 1` prevents multiple Agents from pre-claiming the first three tasks and drifting in parallel before the new rule is proven.
+
+After warmup, completion sequence `5, 10, 15, ...` is deterministically sampled, and HIGH-risk tasks may always require review.
+
+### Visible result requirement
+
+Routine completion is no longer allowed to end with only:
+
+```text
+"done; inspect GitHub path"
+```
+
+The completion packet tells the Agent to present:
+
+- result summary;
+- output list;
+- previews/screenshots when applicable;
+- whether the result is mandatory warmup review or sampled review.
+
+Pending review blocks new Claims.
+
+### Preview requirement
+
+Known source formats automatically gain inspectable preview companions during canonical Task Publish.
+
+Examples:
+
+```text
+.svg  → .svg + .png
+.html → .html + .preview.png
+.pdf  → .pdf + .preview.png
+.pptx/.docx/.xlsx → source + .preview.pdf
+CAD/EDA → source + .preview.png
+```
+
+Completion fails with `PREVIEW_OR_OUTPUT_MISSING` when the required preview does not exist.
+
+This moves preview generation into the original task definition instead of discovering the need after a large batch is complete.
+
+### Reject / rework
+
+If the operator rejects one of the visible results:
+
+1. the quality event records `REJECTED` and feedback;
+2. the task canonical `.done` is removed;
+3. unrelated new work remains blocked;
+4. the same task may be explicitly reclaimed;
+5. corrected outputs may replace the rejected versions;
+6. completion returns to `PENDING` and must be reviewed again.
+
+## Lower-level CAS primitive
 
 `tools/canonical_publish.py` remains a focused transport primitive with:
 
@@ -98,17 +192,19 @@ The hardened low-level bare-Git / multi-clone suite previously passed **7/7**.
 - `tests/test_single_repo_pilot.py`
 - `tests/test_canonical_publish.py`
 - `tests/test_git_cas_lifecycle.py`
+- `tests/test_quality_visibility.py`
+- `tests/test_quality_warmup_serial.py`
 - `tools/selftest.py`
 
-The new integrated lifecycle suite covers:
+Quality regressions cover:
 
-- auto transport unique Claim across independent clones;
-- Complete + Claim release through `uos.py`;
-- declared output canonicalization even when `.gitignore` matches it;
-- concurrent Task Publish replay from latest catalog;
-- Reconcile ref-race full recomputation;
-- unchanged Status canonical no-op;
-- remote disappearance fail-closed behavior.
+- preview output expansion;
+- SVG missing-PNG rejection;
+- first-three review + fifth-completion sampling;
+- Git-CAS pending-review Claim blocking;
+- operator Accept unblocking;
+- rejected-task correction boundary;
+- RuleEpoch warmup single-active-Claim behavior.
 
 ## AI_book used only as read-only design evidence
 
@@ -123,9 +219,11 @@ No AI_book Claim, Grant, Done, project content, book/game assets, credentials or
 
 ## What remains before DONE
 
-The major implementation gap — lifecycle-to-CAS integration — is now closed in code.
+The major lifecycle-to-CAS implementation gap is closed in code. The new anti-drift gate is also integrated in code.
 
-The remaining acceptance item is execution evidence for the **exact committed integrated version** from a normal checkout/fresh clone:
+Remaining acceptance evidence:
+
+### A. Exact committed fresh-clone selftest
 
 ```text
 git clone https://github.com/ZXYHtech/UOS.git
@@ -133,10 +231,14 @@ cd UOS
 python tools/selftest.py
 ```
 
-The current chat execution container cannot resolve `github.com`, so this exact fresh-clone run cannot be performed here. This is an environment limitation and must not be rewritten as a PASS.
+The current chat execution container cannot resolve `github.com`, so this exact run cannot be performed here. This environment limitation must not be rewritten as a PASS.
+
+### B. Three real RuleEpoch-1 reviewed results
+
+The next three real completion results under RuleEpoch 1 must be shown directly to the operator and accepted one by one. This validates that the anti-drift policy works in ordinary Agent execution, not only in test code.
 
 ## Current decision
 
-Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until the committed integrated selftest is executed successfully in a normal Git environment.
+Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until the committed integrated selftest and the RuleEpoch-1 visible-result warmup have acceptable evidence.
 
-Even after that acceptance closes, do **not** begin AI_book integration or multi-repository orchestration without a new explicit operator decision.
+Do **not** begin AI_book integration or multi-repository orchestration without a new explicit operator decision.
