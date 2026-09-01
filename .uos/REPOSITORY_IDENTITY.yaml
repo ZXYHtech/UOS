@@ -5,7 +5,8 @@ IdentityEpoch: 1
 Canonical:
   Provider: GITHUB
   RepositoryID: 1352643529
-  Repository: ZXYHtech/UOS
+  Repository: https://github.com/ZXYHtech/UOS
+  RepositorySlug: ZXYHtech/UOS
   DefaultBranch: main
   CanonicalRef: refs/heads/main
 
