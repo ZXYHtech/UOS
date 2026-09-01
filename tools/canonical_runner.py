@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import os
 import random
 import shutil
@@ -24,8 +25,28 @@ from pathlib import Path, PurePosixPath
 
 try:
     from canonical_publish import PublishError, git, is_ref_race, verify_identity
+    from quality_gate import (
+        QualityGateError,
+        claim_block_packet,
+        completion_paths,
+        event_path,
+        load_policy,
+        presentation_packet,
+        record_completion,
+        rewrite_task_publish_args,
+    )
 except ModuleNotFoundError:
     from tools.canonical_publish import PublishError, git, is_ref_race, verify_identity
+    from tools.quality_gate import (
+        QualityGateError,
+        claim_block_packet,
+        completion_paths,
+        event_path,
+        load_policy,
+        presentation_packet,
+        record_completion,
+        rewrite_task_publish_args,
+    )
 
 
 class CanonicalRunError(RuntimeError):
@@ -43,12 +64,7 @@ def remote_exists(root: Path, remote: str) -> bool:
 
 
 def resolve_transport(root: Path, requested: str, remote: str, branch: str) -> str:
-    """Resolve auto transport without unsafe network-failure fallback.
-
-    A repository with a configured canonical remote uses Git CAS. If that
-    remote later becomes unreachable, the command fails; it never silently
-    drops to a local mutex and creates a second ownership truth.
-    """
+    """Resolve auto transport without unsafe network-failure fallback."""
     if os.environ.get("UOS_INTERNAL_LOCAL") == "1":
         return "local"
     requested = (requested or "auto").lower()
@@ -108,7 +124,7 @@ def _safe_rel(value: str) -> str:
     return str(path)
 
 
-def _task_outputs(snapshot: Path, task_id: str) -> list[str]:
+def _declared_task_outputs(snapshot: Path, task_id: str) -> list[str]:
     base = snapshot / "orchestration/projects"
     if not base.exists():
         raise CanonicalRunError(f"unknown task: {task_id}")
@@ -118,6 +134,16 @@ def _task_outputs(snapshot: Path, task_id: str) -> list[str]:
                 if row.get("id") == task_id:
                     return [_safe_rel(item) for item in (row.get("output") or "").split(";") if item.strip()]
     raise CanonicalRunError(f"unknown task: {task_id}")
+
+
+def _task_outputs(snapshot: Path, task_id: str) -> list[str]:
+    if load_policy(snapshot)["enabled"]:
+        try:
+            paths, _previews = completion_paths(snapshot, task_id)
+            return paths
+        except QualityGateError as exc:
+            raise CanonicalRunError(str(exc)) from exc
+    return _declared_task_outputs(snapshot, task_id)
 
 
 def _tree_digest(path: Path) -> str:
@@ -140,13 +166,18 @@ def _tree_digest(path: Path) -> str:
     return "ABSENT"
 
 
-def _copy_one(source: Path, target: Path) -> None:
+def _copy_one(source: Path, target: Path, *, allow_replace: bool = False) -> None:
     if target.exists() or target.is_symlink():
-        if _tree_digest(source) != _tree_digest(target):
+        if _tree_digest(source) == _tree_digest(target):
+            return
+        if not allow_replace:
             raise CanonicalRunError(
                 f"TARGET_PATH_CONFLICT: canonical output differs from caller output: {target}"
             )
-        return
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        else:
+            target.unlink(missing_ok=True)
     target.parent.mkdir(parents=True, exist_ok=True)
     if source.is_symlink():
         target.symlink_to(os.readlink(source))
@@ -156,16 +187,28 @@ def _copy_one(source: Path, target: Path) -> None:
         shutil.copy2(source, target)
 
 
+def _review_rejected(snapshot: Path, task_id: str) -> bool:
+    path = event_path(snapshot, task_id)
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return str(data.get("review_status", "")).upper() == "REJECTED"
+    except Exception:
+        return False
+
+
 def prepare_caller_artifacts(caller_root: Path, snapshot: Path, argv: list[str]) -> None:
     if not argv or argv[0] != "complete":
         return
     task_id = option_value(argv, "--task")
     if not task_id:
         raise CanonicalRunError("complete requires --task")
+    allow_replace = _review_rejected(snapshot, task_id)
     for rel in _task_outputs(snapshot, task_id):
         source = caller_root / rel
         if source.exists() or source.is_symlink():
-            _copy_one(source, snapshot / rel)
+            _copy_one(source, snapshot / rel, allow_replace=allow_replace)
 
 
 def _canonical_message(argv: list[str]) -> str:
@@ -182,9 +225,8 @@ def _candidate_from_worktree(snapshot: Path, base: str, message: str) -> str | N
     status = git(["status", "--porcelain", "--untracked-files=all"], cwd=snapshot).stdout
     if not status.strip():
         return None
-    # The worktree is freshly materialized from canonical main and Python bytecode
-    # is disabled, so force-add is safe here and prevents declared outputs that
-    # match .gitignore from producing a canonical `.done` without the artifact.
+    # Fresh canonical worktree: force-add is intentional so declared previews or
+    # outputs matched by .gitignore cannot produce a completion fact without the artifact.
     git(["add", "-A", "-f"], cwd=snapshot)
     tree = git(["write-tree"], cwd=snapshot).stdout.strip()
     base_tree = git(["rev-parse", f"{base}^{{tree}}"], cwd=snapshot).stdout.strip()
@@ -200,6 +242,55 @@ def _candidate_from_worktree(snapshot: Path, base: str, message: str) -> str | N
         }
     )
     return git(["commit-tree", tree, "-p", base, "-m", message], cwd=snapshot, env=env).stdout.strip()
+
+
+def _quality_blocked_proc(local_argv: list[str], snapshot: Path) -> subprocess.CompletedProcess[str] | None:
+    if not local_argv or local_argv[0] != "claim":
+        return None
+    project = option_value(local_argv, "--project")
+    task_id = option_value(local_argv, "--task")
+    packet = claim_block_packet(snapshot, project, task_id)
+    if packet is None:
+        return None
+    return subprocess.CompletedProcess(
+        args=local_argv,
+        returncode=6,
+        stdout=json.dumps(packet, ensure_ascii=False, indent=2) + "\n",
+        stderr="",
+    )
+
+
+def _quality_complete_proc(proc: subprocess.CompletedProcess[str], snapshot: Path, local_argv: list[str]) -> subprocess.CompletedProcess[str]:
+    if not local_argv or local_argv[0] != "complete" or proc.returncode != 0:
+        return proc
+    task_id = option_value(local_argv, "--task")
+    if not task_id:
+        return proc
+    try:
+        event = record_completion(snapshot, task_id)
+    except QualityGateError as exc:
+        return subprocess.CompletedProcess(
+            args=proc.args,
+            returncode=2,
+            stdout="",
+            stderr=f"UOS_QUALITY_ERROR: {exc}\n",
+        )
+    if not event:
+        return proc
+    original: dict[str, object] = {}
+    try:
+        parsed = json.loads(proc.stdout or "{}")
+        if isinstance(parsed, dict):
+            original = parsed
+    except Exception:
+        original = {"status": "DONE", "task": task_id}
+    packet = presentation_packet(event, original)
+    return subprocess.CompletedProcess(
+        args=proc.args,
+        returncode=proc.returncode,
+        stdout=json.dumps(packet, ensure_ascii=False, indent=2) + "\n",
+        stderr=proc.stderr,
+    )
 
 
 def run_canonical(
@@ -219,7 +310,7 @@ def run_canonical(
     except PublishError as exc:
         raise CanonicalRunError(str(exc)) from exc
 
-    local_argv = strip_transport_args(argv)
+    base_argv = strip_transport_args(argv)
     target_ref = f"refs/heads/{branch}"
     remote_ref = f"refs/remotes/{remote}/{branch}"
     last_proc: subprocess.CompletedProcess[str] | None = None
@@ -240,6 +331,12 @@ def run_canonical(
                     f"WORKTREE_CREATE_FAILED: {add.stderr.strip() or add.stdout.strip()}"
                 )
             added = True
+
+            local_argv = rewrite_task_publish_args(base_argv, worktree)
+            blocked = _quality_blocked_proc(local_argv, worktree)
+            if blocked is not None:
+                return blocked
+
             prepare_caller_artifacts(caller_root, worktree, local_argv)
 
             env = os.environ.copy()
@@ -254,6 +351,7 @@ def run_canonical(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+            proc = _quality_complete_proc(proc, worktree, local_argv)
             last_proc = proc
             if proc.returncode != 0:
                 return proc
