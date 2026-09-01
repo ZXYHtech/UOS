@@ -1,14 +1,14 @@
 # UOS — Universal Orchestration System
 
-> 从一句目标开始，把项目拆成可发布、可领取、可恢复、可审查的任务，并让不同数量级的 Agent 在 Git 上协同推进。
+> 从一句目标开始，把项目拆成可发布、可领取、可恢复、可审查的任务，并让多个 Agent 通过 Git 协同推进。
 
 ## 当前阶段：单仓验证
 
-`ZXYHtech/UOS` 当前只做 **single-repository pilot**。
+`ZXYHtech/UOS` 当前仍是 **single-repository validation**。
 
-现阶段 UOS 只管理存放在本仓库内部的项目、任务和产物；**不调度 AI_book，不向 AI_book 写入任务，不做跨仓项目运行态同步，也不启动多仓调度。** 详细边界和 Exit Gate 见 `docs/CURRENT_PHASE.md`。
+现阶段只管理存放在本仓库里的项目、任务和产物；**不调度 AI_book，不向 AI_book 写任务，不做跨仓运行态同步，也不启动多仓调度。** 详细边界见 `docs/CURRENT_PHASE.md`。
 
-第一个普通试验项目 `QUICKBOARD` 已经完成：
+第一个普通项目 `QUICKBOARD` 已完成：
 
 ```text
 SPEC ✅
@@ -22,8 +22,6 @@ REVIEW ✅
 PROJECT COMPLETED ✅
 ```
 
-试跑证据和发现见 `docs/PILOT_RESULT_QUICKBOARD.md`。
-
 ## 先运行自检
 
 最低环境：`git + Python 3`。
@@ -32,27 +30,45 @@ PROJECT COMPLETED ✅
 python tools/selftest.py
 ```
 
-这会执行：
+测试集现在覆盖三层：
 
-- 同一工作树的 Project / Task / Claim / Lease / Fencing / Complete 生命周期回归；
-- 临时 bare Git + 多个独立 clone 的 latest-canonical CAS 回归。
+1. `tests/test_single_repo_pilot.py` — 同工作树生命周期；
+2. `tests/test_canonical_publish.py` — 底层 latest-canonical CAS 原语；
+3. `tests/test_git_cas_lifecycle.py` — 完整 `uos.py` 生命周期经过独立 Clone / bare Git remote 的集成回归。
 
-CAS 设计与边界见 `docs/CANONICAL_GIT_CAS.md`。
+当前执行环境不能解析 `github.com`，所以这里仍不声称“GitHub fresh clone 已实机通过”；仓库内的本地 bare-remote 测试入口已经准备好。
 
-## 现在怎么用
+## 默认运行方式
 
-### 模式 A：当前普通项目入口（同一个仓库工作树）
+`tools/uos.py` 现在有三种 transport：
 
-当前 `tools/uos.py` 是已经跑通 QUICKBOARD 的主入口。它现在仍以**同一个仓库工作树**为默认拓扑。
-
-#### 1. 查看 UOS
-
-```bash
-python tools/uos.py boot
-python tools/uos.py status
+```text
+auto      默认
+git-cas   latest-canonical Git transaction
+local     单工作树 / 测试模式
 ```
 
-#### 2. 创建一个新项目
+### auto 的安全规则
+
+```text
+没有 Git remote
+    ↓
+local
+
+存在 origin / canonical remote
+    ↓
+git-cas
+
+remote 临时断网
+    ↓
+FAIL CLOSED
+    ↓
+绝不偷偷降级为 local Claim
+```
+
+这样可以避免网络故障时出现“两套 ownership truth”。
+
+## 创建项目
 
 ```bash
 python tools/uos.py project init \
@@ -61,16 +77,9 @@ python tools/uos.py project init \
   --goal "Build a small demo inside this repository"
 ```
 
-这会创建：
+正常 Clone 中，该命令会从最新 canonical main 建立隔离 worktree，重新执行 Project Init，再以普通 non-force push 发布。
 
-```text
-orchestration/projects/DEMO/PROJECT.yaml
-orchestration/projects/DEMO/TASK_CATALOG.csv
-```
-
-创建项目本身不会制造 Claim 或 Done。
-
-#### 3. 发布任务
+## 发布任务
 
 ```bash
 python tools/uos.py task publish \
@@ -96,9 +105,9 @@ python tools/uos.py task publish \
   --acceptance "Working demo exists"
 ```
 
-`task publish` 只发布任务。**发布 ≠ 领取，Request/Task ≠ Ownership。**
+**Task publication ≠ Ownership。** 发布任务不会自动制造 Claim 或 Done。
 
-#### 4. Agent 领取任务
+## Agent 领取任务
 
 ```bash
 python tools/uos.py claim \
@@ -106,7 +115,7 @@ python tools/uos.py claim \
   --project DEMO
 ```
 
-成功后返回 Claim，包括：
+成功 Claim 包含：
 
 - `CanonicalID`
 - `AgentID`
@@ -116,9 +125,9 @@ python tools/uos.py claim \
 - `FencingToken`
 - Inputs / Output / Acceptance
 
-只有当前有效 Claim 才代表 ownership。
+多个独立 Clone 同抢时，只有最终成功推进 canonical main 的 Claim 才成为事实；main race 后失败者会从新 main 重新执行 Claim，而不是 rebase 旧决定。
 
-#### 5. 工作时间较长时续租
+## 续租
 
 ```bash
 python tools/uos.py renew \
@@ -127,11 +136,11 @@ python tools/uos.py renew \
   --lease-token <TOKEN>
 ```
 
-旧 owner、旧 token 或已过期 Lease 会被 fencing 拒绝。
+旧 owner、旧 token、过期 Lease 或被新 generation 替换的 owner 都会被 fencing。
 
-#### 6. 完成任务
+## 完成任务
 
-Agent 先创建任务声明的 output，然后：
+Agent 先在自己的工作区创建任务声明的 output，然后：
 
 ```bash
 python tools/uos.py complete \
@@ -140,11 +149,16 @@ python tools/uos.py complete \
   --lease-token <TOKEN>
 ```
 
-完成入口会再次验证当前 owner/token 和声明输出；成功后创建 `.done`、释放 Claim，并重新计算依赖状态。
+Git-CAS transport 会把调用者声明的 output 复制到最新 canonical snapshot 中，再执行当前 owner/token 检查、创建 `.done`、释放 Claim、重算依赖状态，并作为一个 canonical tree transaction 发布。
 
-#### 7. 查看项目状态
+即使 output 命中 `.gitignore`，声明产物也会被纳入该隔离 completion transaction，避免“Done 已提交但产物没进仓库”。
+
+如果 canonical main 上同一路径已经存在不同内容，则 completion 会停止，而不是静默覆盖。
+
+## Reconcile / Status
 
 ```bash
+python tools/uos.py reconcile
 python tools/uos.py status --project DEMO
 ```
 
@@ -155,106 +169,77 @@ coordination/runtime/TASK_STATUS.csv
 coordination/runtime/STATUS.json
 ```
 
-### 模式 B：多 clone canonical Git CAS（底层事务原语）
+派生状态现在是确定性的；不再因为单纯的 `generated_at` 时间戳导致每次 `status` 都生成无意义 canonical commit。
 
-UOS 现在新增：
-
-```text
-tools/canonical_publish.py
-```
-
-它已经在临时 bare Git remote + 独立 clones 上验证：
-
-- latest-main non-force publish；
-- ref race 后从最新 main 重建；
-- create-if-absent Claim 唯一赢家；
-- expected-blob fencing；
-- output + `.done` + Claim 删除原子 completion；
-- same-path no-clobber；
-- 删除必须带 expected blob；
-- `.uos/REPOSITORY_IDENTITY.yaml` 存在时验证 canonical remote / branch。
-
-**注意：它现在是底层 transport primitive，不是一个新的“多仓调度入口”。** 普通 Agent 暂时不要绕过 `tools/uos.py` 自己拼 Claim / Complete。下一步工作是把这层 CAS transport 正式集成到 `uos project/task/claim/renew/complete/reconcile`。
-
-## 当前内核能力
-
-当前 `tools/uos.py` 已包含：
-
-- Project Init
-- Task Publish
-- READY/BLOCKED 依赖推导
-- Claim
-- Lease / Renew
-- LeaseGeneration / LeaseToken / Fencing
-- stale reclaim
-- Complete
-- Status / Reconcile
-- 同工作树控制面 mutex
-- 原子 runtime/catalog 写入
-- 仓库内路径约束，拒绝绝对路径和 `../` 逃逸
-
-当前 `tools/canonical_publish.py` 已包含：
-
-- latest-canonical Git transaction
-- explicit canonical main target
-- non-force push only
-- ref-race retry from latest main
-- require-absent CAS
-- expected-blob CAS
-- atomic multi-path publish + fenced delete
-- Repository Identity target verification
-
-回归入口：
-
-```bash
-python tools/selftest.py
-```
-
-对应测试：
+最重要的 race 规则：
 
 ```text
-tests/test_single_repo_pilot.py
-tests/test_canonical_publish.py
+main@X
+  ↓
+重算 runtime
+  ↓
+准备 push
+  ↓
+main 已推进到 Y
+  ↓
+丢弃 X 的 candidate
+  ↓
+从 Y 创建新的隔离 worktree
+  ↓
+重新运行 reconcile
 ```
+
+**禁止把基于 X 的旧 runtime 仅仅 re-parent 到 Y。**
+
+## Transport 细节
+
+### `tools/canonical_runner.py`
+
+把完整 `uos.py` 命令运行在最新 canonical snapshot 的临时 detached worktree 中；ref race 后整个命令重新执行。
+
+### `tools/canonical_publish.py`
+
+更底层的显式路径 CAS 原语，提供：
+
+- latest-canonical fetch/build/push；
+- non-force push；
+- create-if-absent；
+- expected-blob replacement；
+- fenced delete；
+- no-clobber；
+- Repository Identity remote / branch gate。
+
+普通 Agent 应优先使用 `tools/uos.py`，不要绕过生命周期直接拼 Claim / Complete。
+
+## 当前能力边界
+
+```text
+同工作树生命周期                  ✅
+QUICKBOARD 普通项目闭环            ✅
+多 Clone CAS primitive             ✅
+多 Clone uos.py lifecycle integration  CODE COMPLETE / TEST ADDED
+GitHub fresh-clone 实机自检         ⏳
+外部项目仓库 adapter               ❌ 当前禁止
+AI_book 调度                        ❌ 当前禁止
+一个 UOS 调度多个仓库               ❌ 当前禁止
+```
+
+## Repository Identity
+
+`.uos/REPOSITORY_IDENTITY.yaml` 把当前 canonical repository 锚定为：
+
+```text
+https://github.com/ZXYHtech/UOS
+refs/heads/main
+```
+
+错误 remote / branch 会 fail closed；fork 或独立复用时必须重新初始化 identity，而不是继承上游 canonical 权限。
 
 ## 定位
 
-`ZXYHtech/UOS` 是 UOS 调度系统的独立开发与验证仓库。
+`ZXYHtech/UOS` 是 UOS 调度内核的独立开发和验证仓库。
 
-长期目标是让 UOS 成为跨项目、跨仓库的通用 Agent 调度控制面，但该能力**不是当前阶段目标**。只有单仓 Exit Gate 关闭并得到新的 operator 决策后，才进入外部仓库与多仓调度阶段。
-
-## 当前基线来源
-
-独立 UOS 的设计基线来源于 AI_book 中已经验证过的 UOS：
-
-- Protocol baseline: `V2.26`
-- UOS baseline: `UOS_V1.11`
-- ExecutionEpoch: `UOS_EXEC_20260830_01`
-- provider-neutral target: `git + python3`
-- lifecycle target: `Boot -> Claim -> Work -> Renew -> Complete -> Reconcile -> Next Task`
-- GitHub Actions should remain optional
-- canonical ownership semantics: Claim + Lock + Lease + Fencing
-- distributed target: latest-canonical non-force/CAS Git transaction
-
-当前 standalone Pilot 已经重新建立并验证了**独立的多 clone Git CAS 事务原语**，但该事务层尚未完全并入默认 `tools/uos.py` 生命周期。因此不能把 CAS primitive 的成功误读成“多仓调度已经完成”。
-
-## 当前项目
-
-```text
-UOS_CORE
-  └─ 单仓 Kernel
-     ├─ QUICKBOARD 闭环 ✅
-     ├─ same-working-tree lifecycle ✅
-     ├─ multi-clone CAS primitive ✅
-     └─ CAS lifecycle integration ⏳
-
-QUICKBOARD
-  └─ COMPLETED ✅
-```
-
-## 以后再做
-
-只有单仓闭环稳定，并且由 operator 明确开启下一阶段，才考虑：
+长期方向仍然是：
 
 ```text
 UOS Control Plane
@@ -264,21 +249,19 @@ UOS Control Plane
    └─ ...
 ```
 
-届时再引入 repository adapter、跨仓任务发现、跨仓 ownership、故障隔离和统一项目视图；不会把当前 CAS primitive 直接当作多仓调度器。
+但只有当前单仓 Exit Gate 关闭，并且 operator 明确开启下一阶段后，才会开始 repository adapter、跨仓 ownership、故障隔离和统一项目视图。
 
 ## 设计原则
 
 1. Durable state lives in files/Git, not chat memory.
-2. Git is the arbiter; Python is the executor; CI is an optional adapter.
-3. Task publication is not ownership; valid Claim is ownership.
-4. Agents may disappear; Lease/Fencing/Handoff must recover safely.
-5. Project intent can change without silently rewriting history.
-6. Kernel is domain-neutral; project quality/content rules are adapters.
-7. Weak Agents should be able to work with minimal context.
-8. Kernel upgrades are serialized; project work can scale in parallel.
-9. Runtime state is repository-local.
-10. Prove one-repository operation before introducing multi-repository orchestration.
+2. Git is the arbiter; Python is the executor; CI is optional.
+3. Task publication is not ownership; a valid canonical Claim is ownership.
+4. Agents may disappear; Lease/Fencing must recover safely.
+5. Ref race means recompute from latest canonical truth, never force/rebase stale decisions.
+6. Kernel is domain-neutral; project rules are adapters.
+7. Runtime state remains repository-local in the current phase.
+8. Prove one-repository operation before introducing multi-repository orchestration.
 
 ## License
 
-Apache-2.0. Do not copy AI_book private project content, credentials, secrets, or project-specific runtime history into this public repository.
+Apache-2.0. Do not copy AI_book private project content, credentials, secrets or project runtime history into this public repository.
