@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the standalone UOS single-repository and Git-CAS regression suites."""
+"""Run standalone UOS syntax, local lifecycle and Git-CAS regression suites."""
 from __future__ import annotations
 
 import shutil
@@ -14,6 +14,15 @@ def main() -> int:
     if shutil.which("git") is None:
         print("SELFTEST FAIL: git is required", file=sys.stderr)
         return 2
+
+    compile_proc = subprocess.run(
+        [sys.executable, "-m", "compileall", "-q", "tools", "tests"],
+        cwd=ROOT,
+    )
+    if compile_proc.returncode:
+        print("SELFTEST FAIL: Python compile check failed", file=sys.stderr)
+        return compile_proc.returncode
+
     cmd = [
         sys.executable,
         "-m",
@@ -27,9 +36,12 @@ def main() -> int:
     ]
     proc = subprocess.run(cmd, cwd=ROOT)
     if proc.returncode:
-        print("SELFTEST FAIL", file=sys.stderr)
+        print("SELFTEST FAIL: regression suite failed", file=sys.stderr)
         return proc.returncode
-    print("SELFTEST PASS: local lifecycle + multi-clone Git CAS regression suites passed")
+
+    print(
+        "SELFTEST PASS: syntax + local lifecycle + low-level CAS + integrated multi-clone UOS lifecycle passed"
+    )
     return 0
 
 
