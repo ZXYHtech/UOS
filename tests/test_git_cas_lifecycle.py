@@ -51,6 +51,9 @@ def setup_remote(td: Path) -> Path:
         shutil.copy2(SOURCE / "tools" / name, seed / "tools" / name)
     (seed / "orchestration").mkdir()
     (seed / "orchestration/.keep").write_text("\n", encoding="utf-8")
+    # Completion must still publish declared outputs even when a project's
+    # repository ignore rules would normally hide them from ordinary git add.
+    (seed / ".gitignore").write_text("*.ignored\n", encoding="utf-8")
     git(seed, "add", ".")
     git(seed, "commit", "-m", "seed UOS")
     git(td, "init", "--bare", str(remote))
@@ -113,7 +116,7 @@ class GitCasLifecycleTests(unittest.TestCase):
             clone(remote, b)
 
             bootstrap_project(a)
-            publish_task(a, "TASK_A", "projects/DEMO/result.txt")
+            publish_task(a, "TASK_A", "projects/DEMO/result.ignored")
 
             contenders = [
                 subprocess.Popen(
@@ -128,7 +131,7 @@ class GitCasLifecycleTests(unittest.TestCase):
             results = []
             for proc in contenders:
                 out, err = proc.communicate()
-                results.append((proc.returncode, out, err, proc))
+                results.append((proc.returncode, out, err))
             winners = [item for item in results if item[0] == 0]
             losers = [item for item in results if item[0] == 4]
             self.assertEqual(len(winners), 1, results)
@@ -136,7 +139,7 @@ class GitCasLifecycleTests(unittest.TestCase):
 
             grant = json.loads(winners[0][1])
             winner_repo = a if grant["AgentID"] == "AGENT_A" else b
-            output = winner_repo / "projects/DEMO/result.txt"
+            output = winner_repo / "projects/DEMO/result.ignored"
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text("canonical result\n", encoding="utf-8")
             uos(
@@ -152,7 +155,7 @@ class GitCasLifecycleTests(unittest.TestCase):
 
             check = td / "check"
             clone(remote, check)
-            self.assertEqual((check / "projects/DEMO/result.txt").read_text(), "canonical result\n")
+            self.assertEqual((check / "projects/DEMO/result.ignored").read_text(), "canonical result\n")
             self.assertTrue((check / "coordination/completed/TASK_A.done").exists())
             self.assertFalse((check / "coordination/claims/TASK_A.lock").exists())
             status = json.loads((check / "coordination/runtime/STATUS.json").read_text())
@@ -216,6 +219,15 @@ class GitCasLifecycleTests(unittest.TestCase):
             bootstrap_project(admin)
             publish_task(admin, "TASK_A", "projects/DEMO/a.txt")
 
+            # Make canonical runtime intentionally stale so `status` definitely
+            # has a candidate to publish before another writer advances main.
+            git(admin, "pull", "--ff-only", "origin", "main")
+            status_path = admin / "coordination/runtime/STATUS.json"
+            status_path.write_text('{"stale": true}\n', encoding="utf-8")
+            git(admin, "add", str(status_path.relative_to(admin)))
+            git(admin, "commit", "-m", "make runtime stale for reconcile-race test")
+            git(admin, "push", "origin", "main")
+
             status_worker, writer = td / "status", td / "writer"
             clone(remote, status_worker)
             clone(remote, writer)
@@ -232,7 +244,6 @@ class GitCasLifecycleTests(unittest.TestCase):
             )
             time.sleep(0.2)
 
-            git(writer, "pull", "--ff-only", "origin", "main")
             catalog = writer / "orchestration/projects/DEMO/TASK_CATALOG.csv"
             with catalog.open(newline="", encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
@@ -248,8 +259,8 @@ class GitCasLifecycleTests(unittest.TestCase):
             )
             rows.append(new_row)
             with catalog.open("w", newline="", encoding="utf-8") as handle:
-                csv.DictWriter(handle, fieldnames=fields).writeheader()
                 writer_csv = csv.DictWriter(handle, fieldnames=fields)
+                writer_csv.writeheader()
                 writer_csv.writerows(rows)
             git(writer, "add", str(catalog.relative_to(writer)))
             git(writer, "commit", "-m", "advance canonical catalog without reconcile")
@@ -281,6 +292,29 @@ class GitCasLifecycleTests(unittest.TestCase):
             git(worker, "fetch", "origin", "main")
             second = git(worker, "rev-parse", "origin/main").stdout.strip()
             self.assertEqual(first, second)
+
+    def test_auto_transport_never_falls_back_to_local_when_remote_disappears(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            td = Path(raw)
+            remote = setup_remote(td)
+            worker = td / "worker"
+            clone(remote, worker)
+            bootstrap_project(worker)
+            publish_task(worker, "TASK_A", "projects/DEMO/a.txt")
+            shutil.rmtree(remote)
+
+            failed = uos(
+                worker,
+                "claim",
+                "--agent-id",
+                "AGENT_A",
+                "--project",
+                "DEMO",
+                check=False,
+            )
+            self.assertEqual(failed.returncode, 2)
+            self.assertIn("CANONICAL_FETCH_FAILED", failed.stderr)
+            self.assertFalse((worker / "coordination/claims/TASK_A.lock").exists())
 
 
 if __name__ == "__main__":
