@@ -75,6 +75,10 @@ def _safe_rel(value: str) -> str:
 
 def preview_path_for(rel: str) -> str | None:
     path = PurePosixPath(_safe_rel(rel))
+    # A generated *.preview.* artifact is already the human-viewable companion;
+    # never recurse into preview-of-preview requirements.
+    if path.stem.lower().endswith(".preview"):
+        return None
     suffix = path.suffix.lower()
     if suffix == ".svg":
         return str(path.with_suffix(".png"))
@@ -202,9 +206,6 @@ def blocking_events(root: Path, project: str = "") -> list[dict[str, Any]]:
 def claim_block_packet(root: Path, project: str = "", task_id: str = "") -> dict[str, Any] | None:
     blocked = blocking_events(root, project)
     if task_id:
-        # A rejected task is explicitly allowed to reclaim itself for correction.
-        # Other pending/rejected reviews still block unrelated work so the project
-        # cannot silently run ahead while a visible defect is unresolved.
         blocked = [
             item for item in blocked
             if not (
