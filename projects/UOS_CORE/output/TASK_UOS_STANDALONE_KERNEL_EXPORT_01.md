@@ -1,109 +1,142 @@
 # TASK_UOS_STANDALONE_KERNEL_EXPORT_01 — progress record
 
-Status: **IN PROGRESS**  
+Status: **IN PROGRESS — implementation integrated, final execution evidence pending**  
 Project: `UOS_CORE`  
-Phase: `SINGLE_REPOSITORY_PILOT`
+Phase: `SINGLE_REPOSITORY_VALIDATION`
 
 ## Goal
 
-Extract the reusable UOS kernel from the historical AI_book host into `ZXYHtech/UOS` without copying AI_book project content/runtime state and without activating cross-repository scheduling.
+Extract the reusable UOS kernel from the historical AI_book host into `ZXYHtech/UOS` without copying AI_book project/runtime state and without activating cross-repository scheduling.
 
-## Extracted / rebuilt in standalone UOS
+## Standalone capability now present
 
-### Repository identity and phase boundary
+### Repository identity / phase boundary
 
-- `.uos/REPOSITORY_IDENTITY.yaml` defines `ZXYHtech/UOS` as this repository's identity anchor.
-- `docs/CURRENT_PHASE.md` mechanically records the operator hold: no AI_book dispatch and no multi-repository orchestration.
+- `.uos/REPOSITORY_IDENTITY.yaml` anchors canonical upstream at `https://github.com/ZXYHtech/UOS`, branch `main`.
+- `docs/CURRENT_PHASE.md` keeps the operator hold explicit: no AI_book dispatch and no multi-repository orchestration.
 
-### Same-working-tree lifecycle kernel
+### Deterministic lifecycle state machine
 
-`tools/uos.py` now provides a standalone standard-library implementation of:
+`tools/uos.py` provides:
 
 - Boot / Status / Reconcile
 - Project Init
 - Task Publish
-- dependency-driven READY/BLOCKED derivation
+- dependency-driven READY/BLOCKED
 - Claim
 - Lease / Renew
 - LeaseGeneration / LeaseToken / Fencing
 - stale reclaim
 - Complete
 - repository-local path validation
-- atomic local catalog/runtime replacement
-- same-working-tree control-plane mutex
+- deterministic derived runtime files
 
-This lifecycle completed the ordinary `QUICKBOARD` project through SPEC → UI/LOGIC → DOCS → REVIEW.
+This state machine completed QUICKBOARD through SPEC → UI/LOGIC → DOCS → REVIEW.
 
-### Standalone canonical Git transaction primitive
+### Same-working-tree transport
 
-The stronger AI_book latest-canonical / Main Ref Gate concept has now been reimplemented as a smaller domain-neutral standalone primitive:
+`local` mode retains the repository-local mutex used by the first pilot and by isolated unit tests.
 
-`tools/canonical_publish.py`
+### Latest-canonical Git transport
 
-Implemented semantics:
+`tools/uos.py` now exposes:
 
-- explicit latest canonical branch fetch;
-- branch-independent worktree operation;
-- Repository Identity remote/branch verification when an identity anchor is present;
-- non-force canonical ref update;
-- ref-race rebuild/retry;
-- create-if-absent CAS;
-- expected-blob fenced replacement;
-- atomic multi-path publish;
-- expected-blob-protected deletion;
-- atomic output + `.done` + Claim release capability;
-- target no-clobber behavior.
+```text
+--transport auto | local | git-cas
+```
 
-The implementation intentionally does **not** copy AI_book-specific PathAuthority, Grant compatibility, AI_BOOK namespace rules, workflow dependencies or project runtime state.
+`auto` selects Git-CAS when a remote is configured. A configured remote that becomes unreachable fails closed rather than creating a local fallback Claim.
 
-### Regression suites
+`tools/canonical_runner.py` integrates the whole lifecycle with canonical Git:
+
+```text
+fetch latest main
+→ isolated detached worktree
+→ rerun full UOS command
+→ candidate tree/commit
+→ non-force push
+→ ref race?
+   yes: discard candidate + worktree and rerun from new main
+```
+
+This integrates Project Init, Task Publish, Claim, Renew, Complete, Status and Reconcile without teaching each command a second distributed state machine.
+
+### Reconcile correctness
+
+A main-ref race never re-parents stale runtime. The entire local reconcile command is re-executed from the newer canonical snapshot.
+
+Derived `STATUS.json` is now deterministic and does not include a changing generated-at timestamp, so unchanged status can be a canonical no-op.
+
+### Completion correctness
+
+Git-CAS completion:
+
+- reads declared output paths from latest canonical Task Catalog;
+- copies caller-owned outputs into the isolated snapshot;
+- refuses a different pre-existing canonical artifact at the same output path;
+- rechecks Claim owner/token/fencing on latest canonical state;
+- creates `.done`, releases Claim and recomputes derived state in the same candidate tree;
+- force-stages declared artifacts inside the clean isolated worktree so `.gitignore` cannot produce a `.done` without its output.
+
+### Lower-level CAS primitive
+
+`tools/canonical_publish.py` remains a focused transport primitive with:
+
+- latest-canonical fetch/build/push;
+- non-force update;
+- create-if-absent;
+- expected-blob replacement;
+- expected-blob-protected delete;
+- multi-path tree transaction;
+- no-clobber;
+- Repository Identity remote/branch verification.
+
+The hardened low-level bare-Git / multi-clone suite previously passed **7/7**.
+
+## Regression suites now in repository
 
 - `tests/test_single_repo_pilot.py`
 - `tests/test_canonical_publish.py`
+- `tests/test_git_cas_lifecycle.py`
 - `tools/selftest.py`
 
-The canonical Git CAS suite has been exercised with temporary bare Git repositories and independent clones. The hardened CAS suite passes 7/7 cases, including unique Claim contention, ref-race preservation, stale fencing, atomic completion/release, no-clobber, delete fencing and wrong-canonical-target rejection.
+The new integrated lifecycle suite covers:
 
-## AI_book artifacts used only as read-only design evidence
+- auto transport unique Claim across independent clones;
+- Complete + Claim release through `uos.py`;
+- declared output canonicalization even when `.gitignore` matches it;
+- concurrent Task Publish replay from latest catalog;
+- Reconcile ref-race full recomputation;
+- unchanged Status canonical no-op;
+- remote disappearance fail-closed behavior.
 
-The extraction referenced generic design behavior from AI_book, especially:
+## AI_book used only as read-only design evidence
+
+Referenced generic design behavior included:
 
 - `coordination/MAIN_REF_WRITE_GATE.md`
 - `orchestration/CONTROL_PLANE_WRITER.md`
 - `tools/main_ref_publish.py`
 - `tools/main_ref_publish_legacy.py`
 
-No AI_book Claim, Grant, Done, project content, game/book assets, credentials or runtime history were copied into UOS.
+No AI_book Claim, Grant, Done, project content, book/game assets, credentials or runtime history were copied into UOS.
 
-## Open work before this task can be marked DONE
+## What remains before DONE
 
-The extraction task is **not complete yet**.
+The major implementation gap — lifecycle-to-CAS integration — is now closed in code.
 
-The remaining major item is lifecycle integration:
+The remaining acceptance item is execution evidence for the **exact committed integrated version** from a normal checkout/fresh clone:
 
 ```text
-tools/uos.py
-  project init
-  task publish
-  claim
-  renew
-  complete
-  reconcile
-        ↓
-standalone latest-canonical Git CAS transport
-        ↓
-canonical main
+git clone https://github.com/ZXYHtech/UOS.git
+cd UOS
+python tools/selftest.py
 ```
 
-Important rule for integration:
-
-- Source-of-truth operations may retry against latest canonical preconditions.
-- Derived `reconcile` state must be recomputed from a fresh canonical snapshot after a ref race; stale derived files must never merely be re-parented to a new main.
-
-A normal remote fresh-clone selftest also remains to be executed in an unrestricted Git network environment. The current execution environment cannot resolve `github.com`, so this limitation is recorded rather than falsely marked PASS.
+The current chat execution container cannot resolve `github.com`, so this exact fresh-clone run cannot be performed here. This is an environment limitation and must not be rewritten as a PASS.
 
 ## Current decision
 
-Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until canonical transport integration is complete and the standalone selftest can be run from a normal fresh clone.
+Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until the committed integrated selftest is executed successfully in a normal Git environment.
 
-Do not start AI_book integration or multi-repository orchestration as part of closing this task.
+Even after that acceptance closes, do **not** begin AI_book integration or multi-repository orchestration without a new explicit operator decision.
