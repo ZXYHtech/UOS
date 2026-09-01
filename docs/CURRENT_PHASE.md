@@ -1,45 +1,43 @@
-# Current Phase — Single-Repository Pilot
+# Current Phase — Single-Repository Validation
 
 ## Operator decision
 
-UOS is currently in **single-repository validation mode**.
+UOS remains in **single-repository validation mode**.
 
 For this phase:
 
-- UOS may create and manage projects whose project data and work outputs live inside `ZXYHtech/UOS`.
-- UOS must **not** dispatch, claim, mutate, synchronize, or manage AI_book project work.
-- Cross-repository task routing is not an active capability target for this phase.
-- Multi-repository orchestration remains a future phase and requires an explicit operator decision before activation.
+- UOS may create and manage projects whose project definitions, task state and work outputs live inside `ZXYHtech/UOS`.
+- UOS must **not** dispatch, claim, mutate, synchronize or manage AI_book project work.
+- Cross-repository task routing is not active.
+- Multi-repository orchestration requires a new explicit operator decision.
 
 ## Phase goal
 
-Prove the following lifecycle entirely inside one repository:
+Prove this lifecycle entirely inside one repository, including independent clones of that same repository:
 
 ```text
 Create Project
--> Publish Tasks
--> Discover READY work
--> Agent Claim
--> Work
--> Review / Revision
--> Complete
--> Reconcile
--> Continue until project completion
+→ Publish Tasks
+→ Discover READY work
+→ Agent Claim
+→ Work
+→ Renew / Fencing
+→ Complete
+→ Reconcile
+→ Continue until project completion
 ```
 
-The purpose is to validate UOS as a usable project operating system before introducing repository boundaries, remote project adapters, or multi-repository scheduling.
+## Ordinary workload milestone
 
-## Pilot project
+`QUICKBOARD` is **COMPLETED**.
 
-The first ordinary workload is `QUICKBOARD`, a small zero-dependency browser task board. It is intentionally unrelated to UOS Kernel development so the test can show whether UOS can manage a normal project rather than only manage itself.
+All five project tasks have `.done` records and the project completed its final REVIEW. Evidence is in `docs/PILOT_RESULT_QUICKBOARD.md`.
 
-**QUICKBOARD status: COMPLETED.**
+## Current standalone kernel
 
-All five project tasks have canonical `.done` records and the project completed its final REVIEW. Detailed evidence and lessons are recorded in `docs/PILOT_RESULT_QUICKBOARD.md`.
+### Deterministic state machine — `tools/uos.py`
 
-## Current single-repository kernel status
-
-Implemented in `tools/uos.py`:
+Commands:
 
 - `boot`
 - `status`
@@ -49,88 +47,124 @@ Implemented in `tools/uos.py`:
 - `claim`
 - `renew`
 - `complete`
-- repository-local mutex for same-working-tree control-plane mutations
-- atomic derived/runtime file replacement
-- dependency-driven READY derivation from `.done`
-- LeaseGeneration / LeaseToken / Fencing checks
-- stale reclaim with generation increment
-- repository-local input/output path guard
 
-Implemented in `tools/canonical_publish.py`:
+State semantics include:
 
-- latest-canonical fetch/build/push transaction;
-- branch-independent explicit canonical target;
-- Repository Identity remote/branch verification when an identity anchor exists;
-- non-force ref update only;
-- ref-race rebuild/retry from latest canonical state;
-- create-if-absent transaction for unique Claim creation;
-- expected-blob CAS for fenced replacement;
-- multi-path atomic publish + expected-blob-protected deletion for completion/release;
-- default target no-clobber conflict detection.
+- dependency-driven READY/BLOCKED;
+- Claim ownership;
+- LeaseGeneration / LeaseToken / Fencing;
+- stale reclaim;
+- repository-local input/output path guards;
+- completion output existence checks;
+- deterministic runtime views (no timestamp-only churn).
 
-Regression coverage:
+### Transport selection
 
-`tests/test_single_repo_pilot.py` verifies:
+`tools/uos.py` now supports:
 
-- task lifecycle and dependency release;
-- project/task publication creates no ownership;
-- concurrent task publication preserves both catalog rows;
-- repository path escape is rejected;
-- ten contenders create one owner;
-- expired owner is fenced after reclaim.
+```text
+auto | local | git-cas
+```
 
-`tests/test_canonical_publish.py` verifies against a temporary bare Git remote and independent clones:
+`auto` behavior:
 
-- disjoint concurrent writes survive a main-ref race;
-- two clones racing for one Claim produce exactly one winner;
-- completion can publish output + `.done` + Claim deletion atomically;
-- stale expected-blob replacement is fenced;
-- same-path conflicting content is not clobbered;
-- unchecked deletion is refused;
-- wrong canonical remote is refused when Repository Identity is present.
+- no configured Git remote → local same-working-tree mode;
+- configured canonical remote → latest-canonical Git-CAS mode;
+- configured remote becomes unreachable → fail closed; never silently fall back to local ownership.
 
-The hardened CAS suite passes **7/7** in local bare-remote / multi-clone execution.
+### Canonical lifecycle runner — `tools/canonical_runner.py`
 
-`python tools/selftest.py` is the single regression entrypoint.
+For Git-CAS mode, each logical UOS command:
+
+1. fetches latest canonical branch;
+2. creates an isolated detached worktree at that exact commit;
+3. copies caller-owned declared completion outputs when needed;
+4. runs `tools/uos.py --transport local ...` against that snapshot;
+5. creates one candidate tree/commit containing the resulting source-of-truth and derived state;
+6. pushes normally, never force;
+7. on main-ref race, discards the candidate and reruns the **whole command** from the new canonical snapshot.
+
+This gives `reconcile` the required full-recompute-on-race behavior instead of re-parenting stale derived files.
+
+Completion also refuses a caller output when canonical main already contains different content at that declared output path. Declared outputs are force-staged inside the fresh isolated worktree so `.gitignore` cannot create a `.done` without its artifact.
+
+### Lower-level CAS primitive — `tools/canonical_publish.py`
+
+Still available for focused transport tests and specialized integration:
+
+- create-if-absent;
+- expected-blob replace;
+- expected-blob-protected delete;
+- multi-path atomic tree publish;
+- no-clobber;
+- non-force ref race retry;
+- Repository Identity target/branch verification.
+
+Normal Agents should use `tools/uos.py`, not construct lifecycle state directly with this primitive.
+
+## Regression coverage
+
+`tests/test_single_repo_pilot.py`:
+
+- local lifecycle and dependency release;
+- publish creates no ownership;
+- concurrent local task publication;
+- path escape rejection;
+- 10 contenders / one owner;
+- stale-owner fencing.
+
+`tests/test_canonical_publish.py`:
+
+- independent-clone disjoint writes;
+- unique create-if-absent Claim;
+- atomic output + `.done` + Claim release;
+- expected-blob stale fencing;
+- same-path no-clobber;
+- unchecked delete rejection;
+- wrong canonical target rejection.
+
+The hardened low-level CAS suite previously passed **7/7** against temporary bare Git remotes and independent clones.
+
+`tests/test_git_cas_lifecycle.py` now adds end-to-end integration cases for the actual `uos.py` entrypoint:
+
+- auto transport + independent-clone unique Claim;
+- completion publishes an output even when `.gitignore` matches it;
+- concurrent task publication replays from latest catalog;
+- reconcile ref-race discards stale runtime and recomputes after canonical catalog advance;
+- repeated unchanged status is a canonical no-op;
+- disappearing configured remote fails closed without creating a local Claim.
+
+One-command entrypoint:
+
+```bash
+python tools/selftest.py
+```
 
 ## Exit gate
 
 Do not begin AI_book integration or generic multi-repository orchestration until all of these are demonstrated in `ZXYHtech/UOS`:
 
-1. standalone UOS control plane is runnable;
-2. project creation works without hand-editing hidden runtime state;
-3. task publication creates READY/BLOCKED work but no ownership;
-4. at least one ordinary project is completed through UOS task lifecycle;
-5. claim uniqueness, lease/fencing, recovery and completion remain correct;
-6. operator can inspect project status without reading the whole repository.
-
-### Gate progress
-
 | Gate | Current result | Notes |
 |---|---|---|
-| 1. Standalone control plane runnable | PARTIAL PASS | CLI and one-command selftest exist; direct network `git clone` cannot be executed in the current isolated environment, so exact remote fresh-clone execution is not claimed. |
-| 2. Project creation | CODE/TEST PASS | `project init` exists; same-working-tree publication is serialized. |
-| 3. Task publication without ownership | CODE/TEST PASS | Regression verifies publish creates catalog work but no Claim/Done. |
-| 4. Ordinary project lifecycle | PASS | QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW. |
-| 5. Claim/Lease/Fencing/Recovery | CAS PRIMITIVE PASS / INTEGRATION PARTIAL | Same-working-tree lifecycle is tested and the hardened canonical Git transaction primitive passes 7/7 independent-clone/bare-remote CAS tests. Default `uos.py` lifecycle commands still need to use that transport before this gate is fully closed. |
-| 6. Inspectable status | CODE/TEST PASS | `status` / derived `TASK_STATUS.csv` and `STATUS.json` are implemented. |
+| Standalone control plane runnable | PARTIAL PASS | CLI and selftest entrypoint exist; normal GitHub fresh-clone execution cannot be performed from the current isolated runtime because `github.com` DNS is unavailable. |
+| Project creation | CODE INTEGRATED | Local and canonical transport paths are implemented; integration regression added. |
+| Task publication without ownership | CODE INTEGRATED | Canonical retry reruns publication from latest catalog; integration regression added. |
+| Ordinary project lifecycle | PASS | QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW. |
+| Claim / Lease / Fencing / Recovery | LOW-LEVEL CAS PASS + LIFECYCLE INTEGRATED | Bottom-layer CAS was executed previously; full `uos.py` independent-clone regression is now present but has not been executed from this chat's isolated repository runtime. |
+| Reconcile latest-canonical semantics | CODE INTEGRATED | Full-command rerun on ref race is implemented; dedicated regression added. |
+| Inspectable deterministic status | CODE INTEGRATED | `TASK_STATUS.csv` / `STATUS.json`; unchanged status should not advance canonical main. |
 
 ## Current blocker to phase closure
 
-The major remaining single-repository task is no longer “invent a distributed CAS algorithm.” The primitive now exists and has passed local multi-clone Git tests.
+The architectural integration is now present. The main remaining gate is **execution evidence against the exact committed integrated code from a normal checkout/fresh clone**.
 
-The remaining work is **integration**:
+Current environment limitation:
 
 ```text
-uos project/task/claim/renew/complete/reconcile
-                ↓
-standalone canonical Git transaction transport
-                ↓
-latest canonical main
+git ls-remote https://github.com/ZXYHtech/UOS.git
+→ Could not resolve host: github.com
 ```
 
-For source-of-truth mutations (Project, Task, Claim, Renew, Complete), the transport may retry from current canonical preconditions. For derived `reconcile` state, a ref race must discard the stale computed result and rerun reconciliation from a fresh canonical snapshot rather than merely re-parenting old derived files.
+This is recorded as an environment limitation rather than marked PASS.
 
-A normal remote fresh-clone selftest should also be run when an unrestricted Git network environment is available. The current execution environment cannot resolve `github.com`; this is recorded as an environment limitation, not a product failure.
-
-The phase gate is therefore **still open**. AI_book dispatch, external repositories and multi-repository orchestration remain blocked until this integration is complete and a new operator decision explicitly opens the next phase.
+Until that exact integrated selftest is executed successfully, the phase gate remains open. Even after it passes, AI_book and multi-repository orchestration still require a separate operator decision before activation.
