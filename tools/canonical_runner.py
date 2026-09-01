@@ -225,8 +225,6 @@ def _candidate_from_worktree(snapshot: Path, base: str, message: str) -> str | N
     status = git(["status", "--porcelain", "--untracked-files=all"], cwd=snapshot).stdout
     if not status.strip():
         return None
-    # Fresh canonical worktree: force-add is intentional so declared previews or
-    # outputs matched by .gitignore cannot produce a completion fact without the artifact.
     git(["add", "-A", "-f"], cwd=snapshot)
     tree = git(["write-tree"], cwd=snapshot).stdout.strip()
     base_tree = git(["rev-parse", f"{base}^{{tree}}"], cwd=snapshot).stdout.strip()
@@ -244,20 +242,92 @@ def _candidate_from_worktree(snapshot: Path, base: str, message: str) -> str | N
     return git(["commit-tree", tree, "-p", base, "-m", message], cwd=snapshot, env=env).stdout.strip()
 
 
-def _quality_blocked_proc(local_argv: list[str], snapshot: Path) -> subprocess.CompletedProcess[str] | None:
+def _policy_int(snapshot: Path, key: str, default: int) -> int:
+    path = snapshot / ".uos/QUALITY_VISIBILITY_POLICY.yaml"
+    if not path.exists():
+        return default
+    prefix = key + ":"
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw.strip()
+        if stripped.startswith(prefix):
+            try:
+                return int(stripped.split(":", 1)[1].strip())
+            except ValueError:
+                return default
+    return default
+
+
+def _epoch_events(snapshot: Path, epoch: int) -> list[dict[str, object]]:
+    base = snapshot / "coordination/quality/events"
+    out: list[dict[str, object]] = []
+    if not base.exists():
+        return out
+    for path in sorted(base.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and int(data.get("rule_epoch", -1)) == epoch:
+                out.append(data)
+        except Exception:
+            continue
+    return out
+
+
+def _warmup_serial_block(snapshot: Path, local_argv: list[str]) -> subprocess.CompletedProcess[str] | None:
     if not local_argv or local_argv[0] != "claim":
         return None
-    project = option_value(local_argv, "--project")
-    task_id = option_value(local_argv, "--task")
-    packet = claim_block_packet(snapshot, project, task_id)
-    if packet is None:
+    policy = load_policy(snapshot)
+    if not policy["enabled"] or policy["warmup"] <= 0:
         return None
+    events = _epoch_events(snapshot, int(policy["rule_epoch"]))
+    accepted = [
+        item for item in events
+        if int(item.get("sequence", 999999)) <= int(policy["warmup"])
+        and str(item.get("review_status", "")).upper() == "ACCEPTED"
+    ]
+    if len(accepted) >= int(policy["warmup"]):
+        return None
+
+    max_claims = max(1, _policy_int(snapshot, "WarmupMaxConcurrentClaims", 1))
+    claim_dir = snapshot / "coordination/claims"
+    active_claims = sorted(claim_dir.glob("*.lock")) if claim_dir.exists() else []
+    task_id = option_value(local_argv, "--task")
+    if len(active_claims) < max_claims:
+        return None
+    if task_id and any(path.stem == task_id for path in active_claims):
+        # Explicit same-task claim is allowed to reach the normal Lease/Fencing
+        # logic, which is needed for stale reclaim and rejected-task correction.
+        return None
+    packet = {
+        "status": "REVIEW_BLOCKED",
+        "message": "RuleEpoch warmup is serialized: wait for the current task result to be shown and confirmed before starting another task.",
+        "rule_epoch": policy["rule_epoch"],
+        "warmup_required": policy["warmup"],
+        "warmup_accepted": len(accepted),
+        "active_claims": [path.stem for path in active_claims],
+        "operator_instruction": "Show the current result in the conversation and obtain operator confirmation before the next new Claim.",
+    }
     return subprocess.CompletedProcess(
         args=local_argv,
         returncode=6,
         stdout=json.dumps(packet, ensure_ascii=False, indent=2) + "\n",
         stderr="",
     )
+
+
+def _quality_blocked_proc(local_argv: list[str], snapshot: Path) -> subprocess.CompletedProcess[str] | None:
+    if not local_argv or local_argv[0] != "claim":
+        return None
+    project = option_value(local_argv, "--project")
+    task_id = option_value(local_argv, "--task")
+    packet = claim_block_packet(snapshot, project, task_id)
+    if packet is not None:
+        return subprocess.CompletedProcess(
+            args=local_argv,
+            returncode=6,
+            stdout=json.dumps(packet, ensure_ascii=False, indent=2) + "\n",
+            stderr="",
+        )
+    return _warmup_serial_block(snapshot, local_argv)
 
 
 def _quality_complete_proc(proc: subprocess.CompletedProcess[str], snapshot: Path, local_argv: list[str]) -> subprocess.CompletedProcess[str]:
