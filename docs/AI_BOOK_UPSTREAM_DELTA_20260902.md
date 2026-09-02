@@ -205,21 +205,83 @@ Deadline is a new-Claim boundary. If it expires while a Task is already owned, t
 
 If a Claim succeeds but Session bookkeeping fails, the next Session check adopts the single live canonical Claim for that Agent. Multiple live Claims fail closed instead of guessing.
 
-# P1B — useful next, not synchronized yet
+# P1B — synchronized
+
+Detailed design:
+
+```text
+docs/PARTIAL_HANDOFF.md
+docs/AI_BOOK_P1B_SYNC_20260902.md
+```
 
 ## 7. Partial Handoff
 
-A durable handoff is useful when an Agent cannot safely finish but has reusable partial work.
+Implementation:
 
-Required semantics:
+```text
+tools/partial_handoff.py
+tools/handoff_takeover.py
+```
+
+Preserved invariants:
 
 ```text
 Handoff ≠ .done
 Handoff ≠ ownership transfer
-Handoff preserves useful state for successor recovery
+successor must acquire canonical Claim
+successor must revalidate Acceptance
 ```
 
-This is the recommended next generic sync because it improves tool/time/crash recovery without introducing a second scheduler.
+Every handoff write is conditioned on the exact current Claim blob, including a non-releasing `PARTIAL` checkpoint.
+
+`HANDOFF_READY` does not delete the Lock. It atomically:
+
+```text
+writes handoff recovery context
++ writes immutable checkpoint artifacts
++ expires the current Lease
++ annotates current Lock with HandoffState/HandoffPath
++ stops an active bounded Work Session for that task
+```
+
+The successor then uses the ordinary stale-reclaim path:
+
+```text
+uos.py claim
+→ LeaseGeneration + 1
+→ new LeaseToken
+```
+
+### Immutable artifact checkpoints
+
+Unfinished source files are not published over final task output paths. They are copied to:
+
+```text
+coordination/handoff_artifacts/<TASK>/<HANDOFF_ID>/<SOURCE_PATH>
+```
+
+The handoff stores both `source_path` and `checkpoint_path`.
+
+This prevents partial work from colliding with the successor's later no-clobber final completion.
+
+### Derived-state refresh
+
+After `HANDOFF_READY`, the source-of-truth task is immediately reclaimable. The tool requests a normal Reconcile so `WORK_MARKET.csv` catches up.
+
+If that derived-state refresh fails, source-of-truth handoff remains valid and explicit `uos.py claim --task` can still reclaim from the expired canonical Lock.
+
+### Safe takeover helper
+
+`handoff_takeover.py` performs:
+
+```text
+normal uos.py claim
+→ verified handoff read
+```
+
+It never creates ownership itself. If Claim succeeds but the handoff read fails, it returns `CLAIM_GRANTED_HANDOFF_READ_PENDING` and tells the Agent not to Claim again.
+
+# Remaining P1 — need-driven only
 
 ## 8. Resource Admission / Backpressure
 
@@ -257,18 +319,24 @@ tests/test_agent_matching.py
 tests/test_task_requirements.py
 tests/test_work_session_guard.py
 tests/test_work_session_git_cas.py
+tests/test_partial_handoff.py
+tests/test_partial_handoff_git_cas.py
 ```
 
-The Git-CAS session integration test specifically covers:
+The handoff integration scenario covers:
 
 ```text
-priority-1 task incompatible
-priority-2 task compatible
-→ Session claims compatible task only
-→ task Complete is durable
-→ RuleEpoch warmup produces PENDING review
-→ Session stops before another Claim
-→ accepted review does not make incompatible work claimable
+owner Work Session + generation-1 Claim
+→ partial checkpoint
+→ HANDOFF_READY
+→ immutable canonical checkpoint
+→ old Session STOPPED
+→ Work Market refresh
+→ old owner Renew fenced
+→ successor takeover through ordinary Claim generation 2
+→ verified handoff read
+→ old owner Complete fenced
+→ successor final completion
 ```
 
 # Extraction rule
@@ -294,12 +362,10 @@ P0
   READY Work Market                      ✅
   Artifact Durability Receipt            ✅
 
-P1A
+P1
   Capability / Tool / Context Matching   ✅ CODE / TEST PRESENT
   Bounded Work Session                   ✅ CODE / TEST PRESENT
-
-P1B
-  Partial Handoff                        ⏳ NEXT CANDIDATE
+  Partial Handoff                        ✅ CODE / TEST PRESENT
   Resource Admission / Backpressure      ⏳ NEED-DRIVEN
 
 P2
