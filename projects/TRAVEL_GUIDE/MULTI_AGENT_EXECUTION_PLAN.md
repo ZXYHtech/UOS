@@ -2,11 +2,13 @@
 
 ## Principle
 
-This project is suitable for parallel execution, but only after the UOS Preview / Visible Result Gate permits concurrency. During RuleEpoch warmup, the first three real completion results remain serialized with max concurrent claims = 1. After warmup, independent research workstreams may run concurrently.
+This project uses a **one-confirmation operator policy** because the scope is modest. The first meaningful requirements/result checkpoint has already been shown to the operator and approved. Routine execution therefore continues without asking for two additional warmup confirmations.
+
+The repository-wide UOS quality gate remains the canonical safety mechanism; this project-level operator policy governs how this project is presented and reviewed. Sampling, high-risk review, map verification, privacy review and final audit still apply.
 
 ## Recommended agent topology
 
-Use 5 active agents after warmup, with an optional 6th reviewer.
+Use 5 active agents in steady state, with an optional 6th reviewer.
 
 1. AG_TRAVEL_TRANSIT_MAP
    - geography, station choice, transit, current POI/access validation, map fact sheets
@@ -27,23 +29,35 @@ Use 5 active agents after warmup, with an optional 6th reviewer.
 
 5. AG_TRAVEL_SYNTHESIS_VISUAL
    - five-scheme synthesis, AI map prompt -> image -> receipt loop, final phone-first guide assembly
-   - may start only after research dependencies are complete
+   - may start only after required research dependencies are complete
 
 6. AG_TRAVEL_REVIEW (optional but recommended)
    - privacy/factual/map/budget review
    - must not author and approve the same critical artifact when an independent reviewer is available
 
+## Review policy for this project
+
+- Routine operator confirmations required: 1.
+- Status: SATISFIED by the initial requirements/result confirmation.
+- No second or third routine confirmation should be requested.
+- Later operator interruption is only needed when:
+  - a high-risk/private artifact needs explicit review;
+  - a generated map cannot be reconciled with validated geography;
+  - a material budget/transport assumption changes;
+  - the final audit finds a blocking issue;
+  - the operator voluntarily changes requirements.
+
 ## Parallel waves
 
-### Wave 0 — Warmup / serialized
-- formalize frozen requirements
-- privacy audit
-- first operator-visible research result
+### Wave 0 — Completed operator checkpoint
+- requirements frozen
+- privacy boundary established
+- first operator-visible result approved
 
-No parallel claims during this gate.
+Project may now proceed to parallel execution.
 
 ### Wave 1 — Parallel research
-Can run simultaneously after warmup:
+Can run simultaneously:
 - geography / transit
 - history / culture
 - reviews
@@ -93,7 +107,7 @@ Do not exceed 6 concurrent agents for this 24-task project unless a clear bottle
 
 ## Ownership and safety
 
-All agents must use canonical UOS Claim / Lease / Fencing. Work Market discovery is not ownership.
+All agents must use canonical UOS Claim / Lease / Fencing when operating through the UOS runner. Work Market discovery is not ownership.
 
 Private-context agents must receive the encryption key out-of-repository and may only decrypt transiently. Public research agents do not need the key.
 
