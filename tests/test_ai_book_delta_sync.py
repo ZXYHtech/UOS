@@ -63,6 +63,14 @@ class AiBookDeltaSyncTests(unittest.TestCase):
             with self.assertRaises(ext.ControlExtensionError):
                 ext.validate_project_output_scope(root, "ALPHA", "projects/BETA/result.md")
 
+    def test_existing_catalog_outputs_respect_project_workroots(self) -> None:
+        for meta, directory in uos.project_dirs(ROOT):
+            project_id = meta["ProjectID"]
+            for row in uos.read_catalog(directory / "TASK_CATALOG.csv"):
+                output = row.get("output") or ""
+                if output:
+                    ext.validate_project_output_scope(ROOT, project_id, output)
+
     def test_reconcile_builds_ready_only_work_market(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
