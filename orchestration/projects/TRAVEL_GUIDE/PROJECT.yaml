@@ -2,19 +2,30 @@ Schema: UOS_PROJECT_V1
 ProjectID: TRAVEL_GUIDE
 Title: Travel Guide — guided itinerary planning pilot
 State: ACTIVE
-IntentVersion: TRAVEL_GUIDE_INTENT_V1
+IntentVersion: TRAVEL_GUIDE_INTENT_V2
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/TRAVEL_GUIDE
-Goal: Turn the operator's travel idea into a practical, evidence-based travel guide through a guided intake, itinerary design, transport/lodging planning, budget planning, and final review, while validating UOS on a normal standalone project.
+Goal: Build five evidence-based one-day Dujiangyan travel plans with route maps, guide PDFs, a research digest, and a respectful communication/gifting companion while validating privacy-aware UOS orchestration.
+PrivacyMode: SPLIT_PUBLIC_PRIVATE
+PrivateContext: projects/TRAVEL_GUIDE/PRIVATE_CONTEXT.enc.json
+Encryption: AES-256-GCM
+KeyStorage: OUT_OF_REPOSITORY
+KeyFingerprintSHA256: 3b3dfa32cf1bd4f7d7d7adac40e22a46038ae638ea8189e2ae906429ec6e266a
+MaxTaskCount: 50
+CurrentPlannedTaskCount: 24
 NonGoals:
   - No AI_book dependency
   - No cross-repository writes
   - No booking or payment without explicit operator action
-  - No assumption of destination, dates, budget, or traveler constraints before intake
+  - No plaintext storage of exact origin/date, relationship context/goal, private chat scripts, or private gift staging
+  - No fabricated visitor demographics, purpose ratios, or seasonality percentages
 AcceptanceSummary:
-  - Requirements are explicitly captured before itinerary generation
-  - Plan reflects dates, origin, travelers, budget, pace, interests, transport and lodging constraints
-  - Important current facts are verified when they materially affect the trip
-  - Final guide is easy to inspect in conversation and stored under the project WorkRoot
-  - Operator-visible review gate is respected before further warmup claims
+  - Five genuinely distinct one-day schemes
+  - One route map per scheme, with SVG and PNG pair
+  - Full scheme guides containing private timing/conversation/gift content stored encrypted
+  - Research digest PDF covering geography, history/culture, reviews, food, routes, news, visitor profile, trip purpose, seasonal flow, transport and budget
+  - Encrypted pre-trip communication guide
+  - Current transport/weather/opening/crowd refresh close to departure
+  - Total task catalog stays at or below 50
+  - Operator-visible warmup/review gate is respected
 OperatorPhaseRef: docs/CURRENT_PHASE.md
