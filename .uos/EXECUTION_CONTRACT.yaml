@@ -1,0 +1,13 @@
+Schema: UOS_EXECUTION_CONTRACT_V1
+ExecutionEpoch: UOS_EXEC_20260902_01
+AutomationMode: AGENT_DRIVEN
+ActionsRequired: false
+PrimaryCLI: python tools/uos.py
+CriticalCommandsRequireEpochAck: true
+CriticalCommands: project;task;claim;renew;complete;reconcile
+
+Notes:
+  ExecutionEpoch protects canonical mutations from stale Agent instructions or old chat context.
+  boot and status are read/discovery entrypoints and do not require acknowledgement.
+  A material change to execution semantics must advance ExecutionEpoch.
+  This contract is standalone UOS only; it does not activate AI_book or multi-repository routing.
