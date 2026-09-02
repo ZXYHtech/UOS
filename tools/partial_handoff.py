@@ -107,16 +107,13 @@ def atomic_write(path: Path, text: str) -> None:
 def copy_one(source: Path, target: Path) -> None:
     if not source.exists() and not source.is_symlink():
         raise HandoffError(f"partial artifact missing: {source}")
+    if source.is_dir() and not source.is_symlink():
+        raise HandoffError("partial handoff artifacts must be files or symlinks; package directories explicitly")
     if target.exists() or target.is_symlink():
-        # Existing canonical content is intentionally left in place. The lower
-        # level publisher will reject a differing replacement unless it has an
-        # explicit expected-blob precondition.
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     if source.is_symlink():
         target.symlink_to(os.readlink(source))
-    elif source.is_dir():
-        shutil.copytree(source, target, symlinks=True)
     else:
         shutil.copy2(source, target)
 
@@ -193,7 +190,7 @@ def _build_handoff(
     next_action: str,
     context_refs: list[str],
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "schema": "UOS_PARTIAL_HANDOFF_V1",
         "canonical_id": task_id,
         "project": row.get("project_id", ""),
@@ -215,6 +212,13 @@ def _build_handoff(
             "successor_must_revalidate_acceptance": True,
         },
     }
+    if state == "HANDOFF_READY":
+        payload["release"] = {
+            "mode": "EXPIRE_CURRENT_LEASE",
+            "successor_claim_required": True,
+            "expected_successor_generation": int(lock.get("LeaseGeneration") or 0) + 1,
+        }
+    return payload
 
 
 def create_handoff(
@@ -251,8 +255,11 @@ def create_handoff(
         _validate_owned_lock(lock, agent_id, lease_token)
         validate_project_output_scope(root, row.get("project_id", ""), ";".join(artifacts))
         for rel in artifacts:
-            if not (root / rel).exists() and not (root / rel).is_symlink():
+            source = root / rel
+            if not source.exists() and not source.is_symlink():
                 raise HandoffError(f"partial artifact missing: {rel}")
+            if source.is_dir() and not source.is_symlink():
+                raise HandoffError("partial handoff artifacts must be files or symlinks")
         data = _build_handoff(
             task_id=task_id, row=row, lock=lock, state=state, completed=completed,
             artifacts=artifacts, validation_run=validation_run, known_failures=known_failures,
@@ -290,11 +297,10 @@ def create_handoff(
             source = root / rel
             if not source.exists() and not source.is_symlink():
                 raise HandoffError(f"partial artifact missing: {rel}")
+            if source.is_dir() and not source.is_symlink():
+                raise HandoffError("partial handoff artifacts must be files or symlinks")
             target = worktree / rel
             if target.exists() or target.is_symlink():
-                # Identical existing artifacts are fine; differing canonical
-                # artifacts are rejected later by publish because no expected
-                # replacement blob is granted for artifact paths.
                 if source.is_file() and target.is_file() and source.read_bytes() == target.read_bytes():
                     pass
                 elif source.is_symlink() and target.is_symlink() and os.readlink(source) == os.readlink(target):
@@ -313,12 +319,16 @@ def create_handoff(
         atomic_write(worktree / rel_handoff, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
         paths = [rel_handoff, *artifacts]
-        expected: dict[str, str] = {rel_lock: blob_at(worktree, base, rel_lock) or ""}
+        lock_blob = blob_at(worktree, base, rel_lock)
+        if not lock_blob:
+            raise HandoffError("canonical claim blob missing")
+        # Every handoff write, including a non-releasing PARTIAL checkpoint,
+        # is conditioned on the exact current Claim blob. A stale owner cannot
+        # publish context after ownership changes.
+        expected: dict[str, str] = {rel_lock: lock_blob}
         old_handoff = blob_at(worktree, base, rel_handoff)
         if old_handoff:
             expected[rel_handoff] = old_handoff
-        else:
-            old_handoff = None
 
         if state == "HANDOFF_READY":
             lock["LeaseExpiresAt"] = iso()
@@ -332,10 +342,6 @@ def create_handoff(
                 if old:
                     expected[rel] = old
                 paths.append(rel)
-        else:
-            # The lock is only a precondition for non-ready checkpoint handoffs,
-            # not a path to rewrite.
-            expected.pop(rel_lock, None)
 
         require_absent = [] if old_handoff else [rel_handoff]
         publish(
@@ -343,7 +349,7 @@ def create_handoff(
             paths=list(dict.fromkeys(paths)),
             deletes=[],
             require_absent=require_absent,
-            expect_blobs={key: value for key, value in expected.items() if value},
+            expect_blobs=expected,
             message=f"partial handoff {state.lower()} {task_id}",
             remote=remote,
             branch=branch,
