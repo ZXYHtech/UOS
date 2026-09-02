@@ -2,33 +2,33 @@
 
 ## Scope
 
-This document records reusable orchestration lessons observed in the historical `ZXYHtech/AI_book` UOS implementation and whether they should be carried into standalone `ZXYHtech/UOS`.
+This document tracks domain-neutral orchestration lessons found in the historical `ZXYHtech/AI_book` UOS and whether they belong in standalone `ZXYHtech/UOS`.
 
-Only domain-neutral kernel behavior is eligible. AI_BOOK project content, task runtime, claims/grants/done history, publication assets, credentials and project-specific policies are not synchronization material.
+Never synchronize AI_BOOK project content, task runtime, claims/grants/done history, publication assets, credentials or project-specific policy.
 
-The current operator phase remains **single-repository validation**. Nothing in this delta activates AI_book dispatch or multi-repository orchestration.
+Current operator phase remains **single-repository validation**. Nothing here activates AI_book dispatch or multi-repository orchestration.
 
-## Already rebuilt in standalone UOS
+## Already rebuilt independently
 
-Standalone UOS already has a smaller independent implementation of several capabilities that existed in AI_book:
+Standalone UOS already has smaller implementations of several historical AI_book capabilities:
 
 - provider-neutral `git + python3` execution;
-- latest-canonical, non-force Git CAS;
+- latest-canonical non-force Git CAS;
 - independent-clone Claim contention;
 - LeaseGeneration / LeaseToken / Fencing;
 - full-command recomputation after canonical ref races;
 - deterministic Status/Reconcile;
-- completion that commits declared outputs and `.done` in one canonical tree transaction;
+- output + `.done` canonical completion;
 - Repository Identity gate;
 - staged visible-result / preview review gate.
 
-These should not be replaced by the larger AI_book implementations merely for feature parity.
+These should not be replaced by larger AI_book compatibility layers merely for feature parity.
 
-## P0 — synchronized now
+# P0 — synchronized
 
-### 1. ExecutionEpoch stale-Agent gate
+## 1. ExecutionEpoch stale-Agent gate
 
-Standalone anchor:
+Anchor:
 
 ```text
 .uos/EXECUTION_CONTRACT.yaml
@@ -40,15 +40,13 @@ Current Epoch:
 UOS_EXEC_20260902_01
 ```
 
-`project`, `task`, `claim`, `renew`, `complete` and `reconcile` require acknowledgement of the current Epoch. `boot` and `status` remain safe discovery/read paths.
+Critical control-plane mutations require current Epoch acknowledgement. `boot` and `status` remain discovery/read paths.
 
-Purpose: old chat context or old Agent instructions must not create new canonical control-plane mutations after execution semantics change.
+Purpose: old chat context or old Agent execution rules must not create new canonical mutations after semantics change.
 
-### 2. Project WorkRoot authority
+## 2. Project WorkRoot authority
 
-Each project already declares a `WorkRoot`. Task publication and completion now enforce that every declared output remains inside that root.
-
-Example:
+Every project declares a `WorkRoot`. Task publication and completion enforce that declared outputs stay inside it.
 
 ```text
 Project DEMO
@@ -58,39 +56,29 @@ allowed: projects/DEMO/result.md
 refused: projects/OTHER/result.md
 ```
 
-This is a deliberately smaller standalone equivalent of the broader AI_book Project Namespace / Path Authority system.
+This is the standalone single-repository equivalent of the broader AI_book Project Namespace / Path Authority system.
 
-### 3. WORK_MARKET_V1-lite
+## 3. WORK_MARKET_V1-lite
 
-Every reconcile now derives:
+Every reconcile derives:
 
 ```text
 coordination/runtime/WORK_MARKET.csv
 ```
 
-It contains READY tasks only and exposes compact selection metadata:
+It contains READY tasks only and compact selection metadata.
 
-- task ID;
-- project;
-- priority;
-- role;
-- title;
-- workstream;
-- size;
-- minimum capability tier;
-- context class;
-- tool requirements;
-- output.
+```text
+Market listing ≠ ownership
+```
 
-The market is discovery state, not ownership. A task shown there still requires a successful canonical Claim.
+A task shown in the market still needs canonical Claim.
 
-Role opportunities are intentionally not added yet.
+## 4. Artifact Durability Receipt
 
-### 4. Artifact Durability Receipt
+AI_book exposed a generic failure mode where a user-visible/approved artifact could be followed by new work before the artifact was durably bound to canonical storage.
 
-AI_book exposed an important generic failure class: a result can be visible or even approved before its required artifact is durably bound to canonical repository state.
-
-Standalone UOS already avoids much of that gap because `complete` publishes outputs and `.done` together. It now additionally writes:
+Standalone UOS now writes:
 
 ```text
 coordination/quality/durability/<TASK_ID>.json
@@ -102,9 +90,9 @@ Schema:
 UOS_ARTIFACT_DURABILITY_V1
 ```
 
-The receipt records each declared artifact path, object kind and SHA-256 and states that the receipt/output/`.done` are bound by the same canonical tree transaction.
+The receipt binds declared artifact paths and SHA-256 values to the same canonical tree transaction as task `.done`.
 
-Therefore these dimensions remain explicitly separate:
+Therefore:
 
 ```text
 Preview visible
@@ -113,52 +101,177 @@ Preview visible
 ≠ Task canonical .done
 ```
 
-Continuation must never infer durability merely from a chat preview or path string.
+# P1A — synchronized
 
-## P1 — useful next, but not synchronized yet
-
-### Bounded Work Session
-
-Useful for requests such as “continue for 30 minutes” or “keep taking tasks”, but must obey the visible-result gate:
+Detailed design:
 
 ```text
-canonical completion
-→ durability ready
-→ review/preview gate
-→ only then continuation decision
+docs/WORK_SESSION_AND_AGENT_MATCHING.md
+docs/AI_BOOK_P1_SYNC_20260902.md
 ```
 
-The first-three RuleEpoch warmup must always override AUTO continuation.
+## 5. Capability / Tool / Context Matching
 
-### Capability / Tool / Context matching
+Implementation:
 
-Task Catalog already stores `min_capability_tier`, `tool_requirements`, `context_class` and `context_refs`. Standalone Claim selection does not yet mechanically filter on an Agent capability envelope.
+```text
+tools/agent_matching.py
+```
 
-A small matcher is preferable to copying the full AI_book Broker.
+It consumes latest canonical READY work and filters by an explicit Agent envelope:
 
-### Partial Handoff
+```text
+CapabilityTier
+Tools
+ContextCapacity
+optional Roles
+```
 
-A durable handoff is useful when ownership cannot safely complete but useful partial work exists. It must not equal `.done` and must not transfer ownership by itself.
+Matching is discovery only. The final transition is always delegated to:
 
-### Resource Admission / Backpressure
+```text
+tools/uos.py claim
+```
 
-AI_book proved claim-coupled frozen reservations and broker-only constrained claims. Standalone UOS should add this only when a real project needs scarce shared resources or project-level concurrency caps.
+so Lease/Fencing, ExecutionEpoch, Git-CAS and Review Gate remain authoritative.
+
+A lower-priority compatible task may be selected ahead of a higher-priority incompatible task.
+
+### Optional task matching sidecar
+
+Implementation:
+
+```text
+tools/task_requirements.py
+```
+
+Canonical project path:
+
+```text
+orchestration/projects/<PROJECT>/TASK_AGENT_REQUIREMENTS.csv
+```
+
+It may override only matching hints:
+
+- `min_capability_tier`;
+- `context_class`;
+- `tool_requirements`;
+- `allowed_roles`.
+
+It cannot grant ownership or change Task outputs, dependencies, WriteScope or completion acceptance.
+
+## 6. Bounded Work Session
+
+Implementation:
+
+```text
+tools/work_session.py
+```
+
+Canonical session state:
+
+```text
+coordination/work_sessions/<AGENT>/<SESSION>.json
+```
+
+A Session stores continuation intent such as deadline, max task count, project scope and Agent capability envelope.
+
+It is **not a scheduler** and is **not ownership**.
+
+Continuation requires:
+
+```text
+previous task canonical .done
++ UOS_ARTIFACT_DURABILITY_V1 = DURABLE_READY
++ Quality Event released
++ deadline/max-task budget still open
++ compatible READY work
+→ canonical uos.py Claim
+```
+
+Hard stop states include:
+
+```text
+STOP_REVIEW_PENDING
+REWORK_REQUIRED
+STOP_DURABILITY_PENDING
+STOP_QUALITY_EVENT_MISSING
+STOP_NO_MATCH
+SESSION_STOPPED
+RECOVERY_REQUIRED
+```
+
+Deadline is a new-Claim boundary. If it expires while a Task is already owned, the Session returns `WORK_CURRENT_TASK` with `stop_after_current=true`; it does not abandon the existing Claim.
+
+If a Claim succeeds but Session bookkeeping fails, the next Session check adopts the single live canonical Claim for that Agent. Multiple live Claims fail closed instead of guessing.
+
+# P1B — useful next, not synchronized yet
+
+## 7. Partial Handoff
+
+A durable handoff is useful when an Agent cannot safely finish but has reusable partial work.
+
+Required semantics:
+
+```text
+Handoff ≠ .done
+Handoff ≠ ownership transfer
+Handoff preserves useful state for successor recovery
+```
+
+This is the recommended next generic sync because it improves tool/time/crash recovery without introducing a second scheduler.
+
+## 8. Resource Admission / Backpressure
+
+AI_book demonstrated claim-coupled frozen resource reservations and broker-only constrained claims.
+
+Standalone should add this only when a real project needs scarce shared capacity or explicit project-level concurrency caps, for example:
+
+```text
+GPU slots
+image-generation quota
+simulation licenses
+hardware benches
+max active project tasks
+```
 
 Do not add resource infrastructure merely for theoretical completeness.
 
-## P2 — intentionally deferred
+# P2 — intentionally deferred
 
-These AI_book capabilities are real but would currently add more complexity than value to the standalone single-repository pilot:
+These capabilities are real but currently add more complexity than value to the standalone single-repository pilot:
 
 - Role Broker / role leases;
 - OUTBOX_INGEST;
-- full Kernel self-orchestration registry / problem planner;
+- full Kernel self-orchestration registry/problem planner;
 - complex project graph interrupts/routing beyond current needs;
-- provider-specific automation adapters beyond a thin optional layer.
+- provider-specific automation adapters beyond a thin optional layer;
+- multi-repository adapters/routing.
 
-They may be reconsidered only after the current single-repository gate is stable and when a concrete workload needs them.
+They may be reconsidered only after the current single-repository gate is stable and a concrete workload needs them.
 
-## Extraction rule
+# Regression coverage added by this sync
+
+```text
+tests/test_agent_matching.py
+tests/test_task_requirements.py
+tests/test_work_session_guard.py
+tests/test_work_session_git_cas.py
+```
+
+The Git-CAS session integration test specifically covers:
+
+```text
+priority-1 task incompatible
+priority-2 task compatible
+→ Session claims compatible task only
+→ task Complete is durable
+→ RuleEpoch warmup produces PENDING review
+→ Session stops before another Claim
+→ accepted review does not make incompatible work claimable
+```
+
+# Extraction rule
 
 When evaluating future AI_book changes:
 
@@ -166,21 +279,29 @@ When evaluating future AI_book changes:
 1. Is the behavior domain-neutral?
 2. Is it already solved more simply in standalone UOS?
 3. Does the current single-repository phase actually need it?
-4. Can it be expressed with canonical Git state rather than a second database/daemon?
-5. Can it be covered by deterministic regression tests?
+4. Can it use canonical Git state instead of a second database/daemon?
+5. Can it be covered by deterministic regressions?
 ```
 
-Only sync when the answer supports a smaller, safer standalone kernel.
+Only sync when the result is a smaller, safer standalone kernel.
 
-## Current result
-
-The 2026-09-02 P0 sync adds four generic protections without activating cross-repository control:
+# Current result
 
 ```text
-ExecutionEpoch
-+ Project WorkRoot authority
-+ READY Work Market
-+ Artifact Durability Receipt
-```
+P0
+  ExecutionEpoch                         ✅
+  Project WorkRoot authority             ✅
+  READY Work Market                      ✅
+  Artifact Durability Receipt            ✅
 
-P1/P2 remain explicit backlog, not silently enabled behavior.
+P1A
+  Capability / Tool / Context Matching   ✅ CODE / TEST PRESENT
+  Bounded Work Session                   ✅ CODE / TEST PRESENT
+
+P1B
+  Partial Handoff                        ⏳ NEXT CANDIDATE
+  Resource Admission / Backpressure      ⏳ NEED-DRIVEN
+
+P2
+  Role Broker / OUTBOX / complex planner / multi-repo   ⏸ DEFERRED
+```
