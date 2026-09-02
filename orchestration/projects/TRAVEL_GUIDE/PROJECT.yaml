@@ -1,0 +1,20 @@
+Schema: UOS_PROJECT_V1
+ProjectID: TRAVEL_GUIDE
+Title: Travel Guide — guided itinerary planning pilot
+State: ACTIVE
+IntentVersion: TRAVEL_GUIDE_INTENT_V1
+RepositoryMode: SAME_REPOSITORY
+WorkRoot: projects/TRAVEL_GUIDE
+Goal: Turn the operator's travel idea into a practical, evidence-based travel guide through a guided intake, itinerary design, transport/lodging planning, budget planning, and final review, while validating UOS on a normal standalone project.
+NonGoals:
+  - No AI_book dependency
+  - No cross-repository writes
+  - No booking or payment without explicit operator action
+  - No assumption of destination, dates, budget, or traveler constraints before intake
+AcceptanceSummary:
+  - Requirements are explicitly captured before itinerary generation
+  - Plan reflects dates, origin, travelers, budget, pace, interests, transport and lodging constraints
+  - Important current facts are verified when they materially affect the trip
+  - Final guide is easy to inspect in conversation and stored under the project WorkRoot
+  - Operator-visible review gate is respected before further warmup claims
+OperatorPhaseRef: docs/CURRENT_PHASE.md
