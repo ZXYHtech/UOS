@@ -26,6 +26,25 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 
+try:
+    from control_extensions import (
+        ControlExtensionError,
+        build_work_market,
+        enforce_execution_epoch,
+        execution_epoch,
+        validate_project_output_scope,
+        write_durability_receipt,
+    )
+except ModuleNotFoundError:
+    from tools.control_extensions import (
+        ControlExtensionError,
+        build_work_market,
+        enforce_execution_epoch,
+        execution_epoch,
+        validate_project_output_scope,
+        write_durability_receipt,
+    )
+
 TASK_FIELDS = [
     "id", "priority", "status", "role", "title", "deps", "inputs", "output",
     "project_id", "phase", "workstream", "exclusive_keys", "size_class",
@@ -223,6 +242,7 @@ def reconcile(root: Path) -> dict[str, object]:
             }
         )
     atomic_write_text(runtime / "TASK_STATUS.csv", buffer.getvalue())
+    build_work_market(runtime, rows, states)
 
     summary: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -238,6 +258,7 @@ def reconcile(root: Path) -> dict[str, object]:
         "schema": "UOS_SINGLE_REPO_STATUS_V1",
         "scope": "SAME_REPOSITORY_ONLY",
         "projects": summary,
+        "work_market": "coordination/runtime/WORK_MARKET.csv",
     }
     atomic_write_text(
         runtime / "STATUS.json",
@@ -281,6 +302,7 @@ def command_boot(_args: argparse.Namespace) -> int:
     with RepoMutex(root):
         payload = reconcile(root)
     payload["repository_root"] = os.environ.get("UOS_CALLER_ROOT") or str(root)
+    payload["execution_epoch"] = execution_epoch(root) or None
     payload["commands"] = [
         "project init", "task publish", "status", "claim", "renew", "complete", "reconcile"
     ]
@@ -326,6 +348,10 @@ def command_task_publish(args: argparse.Namespace) -> int:
     with RepoMutex(root):
         if not catalog.exists():
             raise UOSError(f"unknown project: {project_id}")
+        try:
+            validate_project_output_scope(root, project_id, output)
+        except ControlExtensionError as exc:
+            raise UOSError(str(exc)) from exc
         current = all_tasks(root)
         if any(row["id"] == task_id for row in current):
             raise UOSError(f"duplicate task id: {task_id}")
@@ -460,10 +486,22 @@ def command_complete(args: argparse.Namespace) -> int:
             raise UOSError("unknown task")
         row = rows[args.task]
         output_spec = safe_repo_path_list(row.get("output") or "", "declared output", allow_empty=True)
+        try:
+            validate_project_output_scope(root, row.get("project_id", ""), output_spec)
+        except ControlExtensionError as exc:
+            raise UOSError(str(exc)) from exc
         outputs = [item for item in output_spec.split(";") if item]
         missing = [item for item in outputs if not (root / item).exists()]
         if missing and not args.allow_missing_output:
             raise UOSError(f"missing declared outputs: {missing}")
+        durability = write_durability_receipt(
+            root,
+            args.task,
+            row.get("project_id", ""),
+            outputs,
+        )
+        if durability.get("status") != "DURABLE_READY" and not args.allow_missing_output:
+            raise UOSError(f"artifact durability incomplete: {durability.get('missing')}")
         write_kv(
             target,
             {
@@ -475,6 +513,7 @@ def command_complete(args: argparse.Namespace) -> int:
                 "LeaseToken": args.lease_token,
                 "CompletedAt": iso(),
                 "Result": args.result,
+                "DurabilityReceipt": f"coordination/quality/durability/{args.task}.json",
             },
         )
         path.unlink(missing_ok=True)
@@ -485,6 +524,7 @@ def command_complete(args: argparse.Namespace) -> int:
                 "status": "DONE",
                 "task": args.task,
                 "project": row.get("project_id"),
+                "durability": durability,
                 "summary": payload["projects"].get(row.get("project_id")),
             },
             ensure_ascii=False,
@@ -525,6 +565,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--remote", default=os.environ.get("UOS_REMOTE", "origin"))
     parser.add_argument("--target-branch", default=os.environ.get("UOS_TARGET_BRANCH", "main"))
     parser.add_argument("--cas-retries", type=int, default=int(os.environ.get("UOS_CAS_RETRIES", "8")))
+    parser.add_argument(
+        "--ack-execution-epoch",
+        default=os.environ.get("UOS_ACK_EXECUTION_EPOCH", ""),
+        help="required for critical commands when .uos/EXECUTION_CONTRACT.yaml is present",
+    )
     subs = parser.add_subparsers(dest="command", required=True)
 
     item = subs.add_parser("boot")
@@ -592,9 +637,14 @@ def main() -> int:
         args = build_parser().parse_args()
         root = repo_root()
         try:
-            from canonical_runner import CanonicalRunError, resolve_transport, run_canonical
+            enforce_execution_epoch(root, args.command, args.ack_execution_epoch)
+        except ControlExtensionError as exc:
+            raise UOSError(str(exc)) from exc
+
+        try:
+            from canonical_runner import resolve_transport, run_canonical
         except ModuleNotFoundError:
-            from tools.canonical_runner import CanonicalRunError, resolve_transport, run_canonical
+            from tools.canonical_runner import resolve_transport, run_canonical
 
         mode = resolve_transport(root, args.transport, args.remote, args.target_branch)
         if mode == "git-cas":
@@ -616,7 +666,7 @@ def main() -> int:
         return 2
     except Exception as exc:
         name = exc.__class__.__name__
-        if name in {"CanonicalRunError", "PublishError"}:
+        if name in {"CanonicalRunError", "PublishError", "ControlExtensionError"}:
             print(f"UOS_CAS_ERROR: {exc}", file=sys.stderr)
             return 2
         raise
