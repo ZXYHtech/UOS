@@ -1,227 +1,194 @@
 # TASK_UOS_STANDALONE_KERNEL_EXPORT_01 — progress record
 
-Status: **IN PROGRESS — implementation integrated, final execution + visible-result evidence pending**  
+Status: **IN PROGRESS — generic extraction expanded; final execution + visible-result evidence pending**  
 Project: `UOS_CORE`  
 Phase: `SINGLE_REPOSITORY_VALIDATION`
 
 ## Goal
 
-Extract the reusable UOS kernel from the historical AI_book host into `ZXYHtech/UOS` without copying AI_book project/runtime state and without activating cross-repository scheduling.
+Extract reusable UOS behavior from the historical AI_book host into standalone `ZXYHtech/UOS` without copying AI_book project/runtime state and without activating cross-repository scheduling.
 
 ## Standalone capability now present
 
-### Repository identity / phase boundary
-
-- `.uos/REPOSITORY_IDENTITY.yaml` anchors canonical upstream at `https://github.com/ZXYHtech/UOS`, branch `main`.
-- `docs/CURRENT_PHASE.md` keeps the operator hold explicit: no AI_book dispatch and no multi-repository orchestration.
-
-### Deterministic lifecycle state machine
+### Core lifecycle
 
 `tools/uos.py` provides:
 
 - Boot / Status / Reconcile
-- Project Init
-- Task Publish
+- Project Init / Task Publish
 - dependency-driven READY/BLOCKED
 - Claim
 - Lease / Renew
 - LeaseGeneration / LeaseToken / Fencing
 - stale reclaim
 - Complete
-- repository-local path validation
-- deterministic derived runtime files
+- deterministic derived runtime state
 
-This state machine completed QUICKBOARD through SPEC → UI/LOGIC → DOCS → REVIEW.
-
-### Same-working-tree transport
-
-`local` mode retains the repository-local mutex used by the first pilot and isolated unit tests.
+QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW through the standalone lifecycle.
 
 ### Latest-canonical Git transport
 
-`tools/uos.py` exposes:
-
-```text
---transport auto | local | git-cas
-```
-
-`auto` selects Git-CAS when a remote is configured. A configured remote that becomes unreachable fails closed rather than creating a local fallback Claim.
-
-`tools/canonical_runner.py` integrates the lifecycle with canonical Git:
+`tools/canonical_runner.py` runs each mutating lifecycle command from a fresh canonical snapshot in an isolated detached worktree and publishes via normal non-force Git update.
 
 ```text
 fetch latest main
-→ isolated detached worktree
-→ apply current quality / preview gate
+→ isolated worktree
 → rerun full UOS command
-→ candidate tree/commit
+→ candidate tree
 → non-force push
 → ref race?
-   yes: discard candidate + worktree and rerun from new main
+   yes → discard + rerun from latest main
 ```
 
-This integrates Project Init, Task Publish, Claim, Renew, Complete, Status and Reconcile without teaching each command a second distributed state machine.
+A ref race therefore never re-parents a stale Reconcile decision.
 
-### Reconcile correctness
+### Visible-result / preview RuleEpoch 1
 
-A main-ref race never re-parents stale runtime. The entire local reconcile command is re-executed from the newer canonical snapshot.
+`.uos/QUALITY_VISIBILITY_POLICY.yaml` and `tools/quality_gate.py` enforce:
 
-Derived `STATUS.json` is deterministic and does not contain timestamp-only churn.
+- first three real completion results are serial and operator-reviewed;
+- at most one active new Claim during warmup;
+- pending review blocks unrelated new Claims;
+- later completion `5, 10, 15, ...` is deterministically sampled;
+- HIGH-risk work may always require review;
+- results/previews must be presented directly in conversation;
+- source formats such as SVG/HTML/PDF/Office/CAD/EDA require inspectable preview companions;
+- missing required preview blocks completion;
+- rejected standalone task is reopened for correction and re-review.
 
-### Completion correctness
+## 2026-09-02 AI_book generic delta review
 
-Git-CAS completion:
+The richer historical AI_book UOS was re-screened for domain-neutral improvements not yet present in standalone UOS.
 
-- reads declared output paths from latest canonical Task Catalog;
-- copies caller-owned outputs into the isolated snapshot;
-- refuses unrelated conflicting canonical artifacts;
-- rechecks Claim owner/token/fencing on latest canonical state;
-- creates `.done`, releases Claim and recomputes derived state in the same candidate tree;
-- force-stages declared artifacts inside the clean isolated worktree so `.gitignore` cannot produce a `.done` without its output.
-
-## Quality Visibility RuleEpoch 1
-
-The operator added a new anti-drift rule during this extraction task.
-
-Policy:
+Inventory:
 
 ```text
-.uos/QUALITY_VISIBILITY_POLICY.yaml
+docs/AI_BOOK_UPSTREAM_DELTA_20260902.md
 ```
 
-Detailed specification:
+Only capabilities valuable to the current single-repository phase were selected.
+
+### P0 synchronized now
+
+#### ExecutionEpoch
+
+Anchor:
 
 ```text
-docs/QUALITY_VISIBILITY_GATE.md
+.uos/EXECUTION_CONTRACT.yaml
+ExecutionEpoch: UOS_EXEC_20260902_01
 ```
 
-Runtime:
+Critical `project / task / claim / renew / complete / reconcile` operations require the current acknowledgement. `boot` and `status` remain discovery/read entrypoints.
+
+This prevents stale chat/Agent execution semantics from creating new canonical control-plane mutations.
+
+`tools/canonical_runner.py` extracts the global Epoch Ack before quality routing and reinserts it only when invoking the local state machine. Therefore adding a global safety parameter cannot make Preview/Claim/Complete logic mis-detect the business command.
+
+#### Project WorkRoot authority
+
+Task Publish and Complete now enforce each project's `WorkRoot` as its output boundary.
+
+Current catalogs were checked and are compatible:
 
 ```text
-tools/quality_gate.py
+UOS_CORE   → projects/UOS_CORE/...
+QUICKBOARD → projects/QUICKBOARD/...
 ```
 
-### Rule-change warmup
+#### READY Work Market
 
-Current RuleEpoch is `1`.
-
-Before normal parallel execution resumes:
+Every Reconcile derives:
 
 ```text
-Task result 1
-  → Agent shows result + previews in conversation
-  → operator confirms
-  → only then Task result 2 may start
-
-Task result 2
-  → show + confirm
-  → only then Task result 3 may start
-
-Task result 3
-  → show + confirm
-  → warmup closes
+coordination/runtime/WORK_MARKET.csv
 ```
 
-`WarmupMaxConcurrentClaims = 1` prevents multiple Agents from pre-claiming the first three tasks and drifting in parallel before the new rule is proven.
+The market exposes only READY tasks plus compact Project/Role/Priority/Capability/Context/Tool metadata. Market listing is discovery, never ownership.
 
-After warmup, completion sequence `5, 10, 15, ...` is deterministically sampled, and HIGH-risk tasks may always require review.
+#### Artifact Durability Receipt
 
-### Visible result requirement
+A key generic AI_book lesson was that “visible/accepted” and “durably persisted” are separate facts.
 
-Routine completion is no longer allowed to end with only:
+Standalone UOS now writes:
 
 ```text
-"done; inspect GitHub path"
+coordination/quality/durability/<TASK>.json
 ```
 
-The completion packet tells the Agent to present:
+using schema `UOS_ARTIFACT_DURABILITY_V1`.
 
-- result summary;
-- output list;
-- previews/screenshots when applicable;
-- whether the result is mandatory warmup review or sampled review.
-
-Pending review blocks new Claims.
-
-### Preview requirement
-
-Known source formats automatically gain inspectable preview companions during canonical Task Publish.
-
-Examples:
+For each declared output it records path, object kind and SHA-256. Complete binds:
 
 ```text
-.svg  → .svg + .png
-.html → .html + .preview.png
-.pdf  → .pdf + .preview.png
-.pptx/.docx/.xlsx → source + .preview.pdf
-CAD/EDA → source + .preview.png
+output / preview
++ durability receipt
++ .done
+- Claim lock
 ```
 
-Completion fails with `PREVIEW_OR_OUTPUT_MISSING` when the required preview does not exist.
+in the same canonical candidate tree.
 
-This moves preview generation into the original task definition instead of discovering the need after a large batch is complete.
+Thus:
 
-### Reject / rework
+```text
+Preview visible
+≠ Operator accepted
+≠ Artifact durably canonical
+≠ Task .done
+```
 
-If the operator rejects one of the visible results:
+and the standalone design does not need AI_book's larger project-specific persistence bridge.
 
-1. the quality event records `REJECTED` and feedback;
-2. the task canonical `.done` is removed;
-3. unrelated new work remains blocked;
-4. the same task may be explicitly reclaimed;
-5. corrected outputs may replace the rejected versions;
-6. completion returns to `PENDING` and must be reviewed again.
+## P1 candidates intentionally not enabled yet
 
-## Lower-level CAS primitive
+Useful next standalone capabilities:
 
-`tools/canonical_publish.py` remains a focused transport primitive with:
+- bounded Work Session;
+- capability/tool/context-aware Claim matching;
+- Partial Handoff;
+- Resource Admission / Backpressure when a real scarce resource or concurrency cap exists.
 
-- latest-canonical fetch/build/push;
-- non-force update;
-- create-if-absent;
-- expected-blob replacement;
-- expected-blob-protected delete;
-- multi-path tree transaction;
-- no-clobber;
-- Repository Identity remote/branch verification.
+These should be implemented as small standalone mechanisms rather than copied wholesale from AI_book.
 
-The hardened low-level bare-Git / multi-clone suite previously passed **7/7**.
+## P2 deferred
 
-## Regression suites now in repository
+Not justified during current single-repository validation:
+
+- Role Broker / role leases;
+- OUTBOX_INGEST;
+- complex Kernel self-orchestration / problem planner;
+- external repository adapters / multi-repository routing.
+
+## Regression surface
+
+Current selftest discovery includes:
 
 - `tests/test_single_repo_pilot.py`
 - `tests/test_canonical_publish.py`
 - `tests/test_git_cas_lifecycle.py`
 - `tests/test_quality_visibility.py`
 - `tests/test_quality_warmup_serial.py`
-- `tools/selftest.py`
+- `tests/test_ai_book_delta_sync.py`
 
-Quality regressions cover:
+The AI_book delta regression covers:
 
-- preview output expansion;
-- SVG missing-PNG rejection;
-- first-three review + fifth-completion sampling;
-- Git-CAS pending-review Claim blocking;
-- operator Accept unblocking;
-- rejected-task correction boundary;
-- RuleEpoch warmup single-active-Claim behavior.
+- stale ExecutionEpoch rejection;
+- Epoch Ack does not contaminate business argv;
+- Project WorkRoot isolation;
+- all current catalog outputs obey WorkRoot;
+- READY-only Work Market;
+- durability path/SHA-256 binding.
 
-## AI_book used only as read-only design evidence
+The Git-CAS fixture now includes `control_extensions.py`, and completion regression expects a canonical durability receipt.
 
-Referenced generic design behavior included:
+## AI_book use boundary
 
-- `coordination/MAIN_REF_WRITE_GATE.md`
-- `orchestration/CONTROL_PLANE_WRITER.md`
-- `tools/main_ref_publish.py`
-- `tools/main_ref_publish_legacy.py`
+AI_book was used only as read-only design evidence. No private AI_book task content, runtime Claim/Grant/Done state, book assets, credentials or project history were copied into public UOS.
 
-No AI_book Claim, Grant, Done, project content, book/game assets, credentials or runtime history were copied into UOS.
+No AI_book dispatch or multi-repository orchestration was activated.
 
-## What remains before DONE
-
-The major lifecycle-to-CAS implementation gap is closed in code. The new anti-drift gate is also integrated in code.
-
-Remaining acceptance evidence:
+## Remaining acceptance evidence before DONE
 
 ### A. Exact committed fresh-clone selftest
 
@@ -231,14 +198,14 @@ cd UOS
 python tools/selftest.py
 ```
 
-The current chat execution container cannot resolve `github.com`, so this exact run cannot be performed here. This environment limitation must not be rewritten as a PASS.
+The current chat execution runtime has previously been unable to resolve `github.com`, so exact fresh-clone execution is still not claimed as PASS.
 
-### B. Three real RuleEpoch-1 reviewed results
+### B. RuleEpoch 1 real visible-result warmup
 
-The next three real completion results under RuleEpoch 1 must be shown directly to the operator and accepted one by one. This validates that the anti-drift policy works in ordinary Agent execution, not only in test code.
+The next three real UOS task completion results must be shown directly to the operator and accepted one by one.
 
 ## Current decision
 
-Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until the committed integrated selftest and the RuleEpoch-1 visible-result warmup have acceptable evidence.
+Keep `TASK_UOS_STANDALONE_KERNEL_EXPORT_01` open until exact-current selftest evidence and RuleEpoch-1 real visible-result evidence are both satisfactory.
 
 Do **not** begin AI_book integration or multi-repository orchestration without a new explicit operator decision.
