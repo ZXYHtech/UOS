@@ -18,6 +18,7 @@ import json
 import os
 import secrets
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -195,6 +196,29 @@ def _artifact_manifest(task_id: str, handoff_id: str, source_artifacts: list[str
     ]
 
 
+def _refresh_derived(root: Path, ack: str, remote: str, branch: str, *, has_remote: bool) -> dict[str, object]:
+    command = [sys.executable, str(root / "tools/uos.py")]
+    if has_remote:
+        command.extend(["--remote", remote, "--target-branch", branch])
+    else:
+        command.extend(["--transport", "local"])
+    if ack:
+        command.extend(["--ack-execution-epoch", ack])
+    command.append("reconcile")
+    proc = subprocess.run(
+        command,
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return {
+        "status": "REFRESHED" if proc.returncode == 0 else "PENDING",
+        "returncode": proc.returncode,
+        "detail": (proc.stderr or proc.stdout).strip() if proc.returncode else "",
+    }
+
+
 def _build_handoff(
     *,
     handoff_id: str,
@@ -292,6 +316,9 @@ def create_handoff(
             lock["HandoffPath"] = handoff_path(task_id)
             atomic_write(lock_file, scalar_text(lock))
             _session_updates(root, agent_id, task_id)
+            data["derived_state_refresh"] = _refresh_derived(
+                root, ack_execution_epoch, remote, branch, has_remote=False
+            )
         return data
 
     verify_identity(root, remote, branch)
@@ -333,9 +360,6 @@ def create_handoff(
         lock_blob = blob_at(worktree, base, rel_lock)
         if not lock_blob:
             raise HandoffError("canonical claim blob missing")
-        # Every handoff write, including a non-releasing PARTIAL checkpoint,
-        # is conditioned on the exact current Claim blob. A stale owner cannot
-        # publish context after ownership changes.
         expected: dict[str, str] = {rel_lock: lock_blob}
         old_handoff = blob_at(worktree, base, rel_handoff)
         if old_handoff:
@@ -367,6 +391,10 @@ def create_handoff(
             retries=8,
             allow_replace=True,
         )
+        if state == "HANDOFF_READY":
+            data["derived_state_refresh"] = _refresh_derived(
+                root, ack_execution_epoch, remote, branch, has_remote=True
+            )
         return data
     finally:
         if added:
