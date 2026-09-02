@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run standalone UOS syntax, lifecycle, CAS and quality-visibility regression suites."""
+"""Run standalone UOS syntax, lifecycle, CAS, visibility and control-extension regressions."""
 from __future__ import annotations
 
 import shutil
@@ -40,7 +40,7 @@ def main() -> int:
         return proc.returncode
 
     print(
-        "SELFTEST PASS: syntax + local lifecycle + low-level CAS + integrated multi-clone lifecycle + quality visibility gate passed"
+        "SELFTEST PASS: syntax + local lifecycle + low-level CAS + integrated multi-clone lifecycle + quality visibility + ExecutionEpoch/WorkRoot/WorkMarket/durability controls passed"
     )
     return 0
 
