@@ -26,10 +26,11 @@ Boot / current ExecutionEpoch
 → Work
 → Renew / Fencing
 → Complete outputs + preview + durability receipt + .done
-→ Visible Result / Preview Gate
+   OR safe Partial Handoff when completion is not possible
+→ Visible Result / Preview Gate when completed
 → Operator Review when required
 → bounded continuation decision when a Work Session is active
-→ Next compatible Claim or safe stop
+→ Next compatible Claim / successor takeover / safe stop
 ```
 
 ## Ordinary workload milestone
@@ -63,9 +64,9 @@ complete
 reconcile
 ```
 
-The new `task_requirements.py` and `work_session.py` canonical mutations independently enforce the same current Epoch.
+`task_requirements.py`, `work_session.py` and `partial_handoff.py` canonical mutations independently enforce the same current Epoch.
 
-`boot` and `status` remain discovery/read entrypoints.
+`boot`, status views and handoff read are discovery/read entrypoints.
 
 Purpose: old Agent instructions or old chat context cannot silently create new canonical mutations after execution semantics change.
 
@@ -143,10 +144,22 @@ docs/WORK_SESSION_AND_AGENT_MATCHING.md
 docs/AI_BOOK_P1_SYNC_20260902.md
 ```
 
-## P1B still pending
+## P1B integrated
 
 ```text
-Partial Handoff                    NEXT CANDIDATE
+Partial Handoff
+```
+
+Details:
+
+```text
+docs/PARTIAL_HANDOFF.md
+docs/AI_BOOK_P1B_SYNC_20260902.md
+```
+
+Remaining P1 candidate:
+
+```text
 Resource Admission / Backpressure NEED-DRIVEN
 ```
 
@@ -185,6 +198,8 @@ Preview visible
 ≠ Task canonical completion
 ```
 
+Partial Handoff is a separate recovery fact and never creates this completion durability receipt.
+
 # Project WorkRoot authority
 
 Current projects are compatible with the rule:
@@ -195,6 +210,8 @@ QUICKBOARD → projects/QUICKBOARD/...
 ```
 
 Task Publish and Complete refuse cross-project output paths.
+
+Partial Handoff source artifacts are also restricted to the owning Project WorkRoot before they are copied into kernel-managed immutable checkpoint paths.
 
 # Work Market + Agent Matching
 
@@ -261,9 +278,57 @@ missing receipt → STOP_DURABILITY_PENDING
 missing quality event while policy enabled → fail closed
 deadline with no current Claim → stop before new Claim
 deadline with current Claim → WORK_CURRENT_TASK + stop_after_current=true
+HANDOFF_READY on current task → STOPPED / stop_reason=HANDOFF_READY
 ```
 
 If Claim succeeds before Session bookkeeping is durably updated, the next session check may adopt the single live canonical Claim for that Agent. More than one live Claim yields `RECOVERY_REQUIRED` rather than guessing.
+
+# Partial Handoff
+
+Tools:
+
+```text
+tools/partial_handoff.py
+tools/handoff_takeover.py
+```
+
+Canonical recovery record:
+
+```text
+coordination/handoffs/<TASK>.handoff
+```
+
+Immutable partial checkpoints:
+
+```text
+coordination/handoff_artifacts/<TASK>/<HANDOFF_ID>/<SOURCE_PATH>
+```
+
+Core invariants:
+
+```text
+Handoff != Done
+Handoff != ownership transfer
+Handoff != Acceptance PASS
+```
+
+Every handoff mutation is conditioned on the exact current Claim blob, including a non-releasing `PARTIAL` checkpoint.
+
+`HANDOFF_READY` atomically records the handoff/checkpoints, expires the current Lease and stops any active bounded Work Session for that task. The Lock is not deleted.
+
+After source-of-truth publication, the tool requests a normal Reconcile so Work Market reflects the reclaimable task. Reconcile failure is recorded as derived-state refresh pending and does not roll back a valid handoff.
+
+The successor still uses canonical stale reclaim:
+
+```text
+normal uos.py claim
+→ LeaseGeneration + 1
+→ new LeaseToken
+```
+
+`handoff_takeover.py` is only a safe convenience wrapper around `uos.py claim → verified handoff read`; it does not create its own ownership protocol.
+
+A successor may read handoff context only after its current AgentID/LeaseToken are verified against the canonical Claim. The result is always marked `UNVERIFIED_PARTIAL_WORK`, and original Acceptance must be rerun before final completion.
 
 # Current standalone kernel
 
@@ -341,6 +406,14 @@ Maintains optional project-local matching hint sidecars using canonical CAS.
 
 Maintains bounded continuation state and only requests another canonical Claim after durability/review/deadline guards pass.
 
+## `tools/partial_handoff.py`
+
+Creates CAS-fenced recovery checkpoints and optionally releases the current Lease at a safe handoff point without creating Done or successor ownership.
+
+## `tools/handoff_takeover.py`
+
+Delegates successor ownership to normal `uos.py claim`, then verifies and returns handoff recovery context.
+
 ## `tools/canonical_publish.py`
 
 Lower-level latest-canonical CAS primitive: create-if-absent, expected-blob replace/delete, no-clobber, non-force ref-race retry and Repository Identity target verification.
@@ -358,6 +431,8 @@ tests/test_agent_matching.py
 tests/test_task_requirements.py
 tests/test_work_session_guard.py
 tests/test_work_session_git_cas.py
+tests/test_partial_handoff.py
+tests/test_partial_handoff_git_cas.py
 ```
 
 These cover:
@@ -372,7 +447,18 @@ These cover:
 - durability missing fails closed;
 - max-task stop;
 - deadline does not abandon current Claim;
-- bare-Git / independent-Clone Session + capability matching integration.
+- bare-Git / independent-Clone Session + capability matching integration;
+- PARTIAL checkpoint does not release ownership;
+- HANDOFF_READY expires Lease without Done;
+- wrong handoff owner/token rejected;
+- cross-project partial artifact rejected;
+- successor must own current Claim before handoff read;
+- immutable checkpoint artifact retained outside final output path;
+- old Work Session stopped by handoff;
+- derived Work Market refresh requested after release;
+- successor takeover uses normal Claim and Generation+1;
+- old owner renew/complete fenced after release;
+- successor final completion leaves handoff checkpoints for audit.
 
 One-command entrypoint:
 
@@ -391,21 +477,23 @@ python tools/selftest.py
 | Work discovery | CODE / TEST PRESENT | Reconcile derives READY-only Work Market. |
 | Capability-aware discovery | CODE / TEST PRESENT | Matching adapter delegates final ownership to canonical Claim. |
 | Bounded Work Session | CODE / TEST PRESENT | Durability/review/deadline/max-task guard implemented. |
+| Partial Handoff | CODE / TEST PRESENT | Claim-fenced checkpoints, safe Lease release and successor Generation+1 takeover are implemented. |
 | Ordinary project lifecycle | PASS | QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW. |
 | Claim / Lease / Fencing / Recovery | LOW-LEVEL CAS PASS + LIFECYCLE INTEGRATED | exact-current full suite still needs execution evidence. |
 | Artifact durability | CODE / TEST PRESENT | Complete binds output digest receipt + `.done` in same candidate tree. |
 | Reconcile latest-canonical semantics | CODE INTEGRATED | full-command rerun after ref race. |
-| Visible-result / preview anti-drift | RULEEPOCH 1 ACTIVE / TEST PRESENT | next three real reviewed completions must be directly shown and accepted. |
-| Partial Handoff | NOT YET | Recommended next P1B capability. |
-| Resource Admission / Backpressure | NOT YET | Add only with real capacity need. |
+| Visible-result / preview anti-drift | RULEEPOCH 1 ACTIVE / TEST PRESENT | next real reviewed completions must be directly shown and accepted according to the policy. |
+| Resource Admission / Backpressure | NOT YET / NEED-DRIVEN | Add only with a demonstrated scarce shared resource or concurrency requirement. |
 
 # Current blocker to phase closure
 
 Two acceptance items remain primary:
 
 1. run `python tools/selftest.py` against the **exact current committed version** from a normal fresh clone/runtime;
-2. exercise Quality RuleEpoch 1 through its first three real reviewed task completions in ordinary Agent work.
+2. exercise Quality RuleEpoch 1 through its real reviewed task completions in ordinary Agent work.
 
 Current chat execution environment has previously failed direct GitHub DNS access, so exact fresh-clone execution is not falsely marked PASS.
 
-Even after these close, AI_book dispatch and multi-repository orchestration require a separate operator decision.
+`Resource Admission / Backpressure` is not an automatic next step. It should be activated only when a real standalone project demonstrates the need for scarce shared capacity or explicit project-level concurrency limits.
+
+Even after the single-repository gate closes, AI_book dispatch and multi-repository orchestration require a separate operator decision.
