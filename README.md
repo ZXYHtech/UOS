@@ -35,6 +35,9 @@ claim
 renew
 complete
 reconcile
+partial handoff create
+work session mutation
+task requirement mutation
 ```
 
 统一写法：
@@ -333,6 +336,78 @@ RECOVERY_REQUIRED
 
 详见 `docs/WORK_SESSION_AND_AGENT_MATCHING.md`。
 
+## 8.5 Partial Handoff：做不完时保留成果，不假装 Done
+
+当当前 Agent 因时间、工具、能力、上下文或外部阻塞无法安全完成任务时，不得用 `.done`、`Validation: PASS` 或普通完成消息掩盖未完成状态。
+
+使用：
+
+```text
+tools/partial_handoff.py
+```
+
+核心不变量：
+
+```text
+Handoff ≠ Done
+Handoff ≠ Ownership transfer
+Handoff ≠ Acceptance PASS
+```
+
+普通 checkpoint：
+
+```bash
+python tools/partial_handoff.py \
+  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  create \
+  --agent-id AGENT_001 \
+  --task TASK_X \
+  --lease-token <TOKEN> \
+  --state PARTIAL \
+  --completed "已完成的具体部分" \
+  --artifact projects/DEMO/draft.py \
+  --known-failures "尚未运行集成测试" \
+  --next-action "运行集成测试并修复失败"
+```
+
+Partial artifact 不直接占用最终 canonical output 路径，而是自动保存为不可变 checkpoint：
+
+```text
+coordination/handoff_artifacts/<TASK>/<HANDOFF_ID>/<SOURCE_PATH>
+```
+
+要把任务交给后继 Agent 时使用：
+
+```text
+state = HANDOFF_READY
+```
+
+成功后会原子记录 handoff/checkpoint，并让当前 Lease 到期；如果当前 Task 属于 Work Session，该 Session 同时变成 `STOPPED / HANDOFF_READY`。随后自动请求一次 Reconcile，使 Work Market 尽快显示可 reclaim 状态。
+
+后继 Agent **必须先正常 Claim**：
+
+```bash
+python tools/uos.py \
+  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  claim \
+  --agent-id AGENT_002 \
+  --task TASK_X
+```
+
+成功后得到 `LeaseGeneration = previous + 1` 和新 Token，才能读取 handoff：
+
+```bash
+python tools/partial_handoff.py \
+  read \
+  --task TASK_X \
+  --agent-id AGENT_002 \
+  --lease-token <NEW_TOKEN>
+```
+
+后继必须把 handoff 视为 `UNVERIFIED_PARTIAL_WORK`，从 checkpoint 恢复后重新执行原任务 Acceptance。旧 owner 的 Renew/Complete 会被 Fencing 拒绝。
+
+详见 `docs/PARTIAL_HANDOFF.md`。
+
 ## 9. Preview / Visible Result Gate
 
 当前质量规则：
@@ -467,7 +542,7 @@ ExecutionEpoch Ack 会在外层解析，但质量/预览逻辑看到的业务 ar
 - no-clobber
 - Repository Identity remote / branch gate
 
-普通 Agent 应优先使用 `tools/uos.py`；Work Session / Agent Matching 只是它前后的薄控制层。
+普通 Agent 应优先使用 `tools/uos.py`；Work Session / Agent Matching / Partial Handoff 只是它前后的薄控制层。
 
 ## 13. 从 AI_book 回流的通用经验
 
@@ -480,16 +555,16 @@ P0
   READY Work Market                         ✅
   Artifact Durability Receipt               ✅
 
-P1A
+P1
   Capability / Tool / Context Matching      ✅ CODE / TEST PRESENT
   Bounded Work Session                      ✅ CODE / TEST PRESENT
+  Partial Handoff                           ✅ CODE / TEST PRESENT
 ```
 
 仍未同步：
 
 ```text
-P1B
-  Partial Handoff                           ⏳ 下一候选
+P1
   Resource Admission / Backpressure         ⏳ 真实需求驱动
 
 P2
@@ -504,6 +579,7 @@ P2
 ```text
 docs/AI_BOOK_UPSTREAM_DELTA_20260902.md
 docs/AI_BOOK_P1_SYNC_20260902.md
+docs/PARTIAL_HANDOFF.md
 ```
 
 ## 14. 自检
@@ -527,6 +603,10 @@ python tools/selftest.py
 - Task Agent requirement sidecar
 - Work Session deadline / max-task / review / durability guard
 - Work Session + capability matching Git-CAS 集成场景
+- Partial Handoff checkpoint / authority / WorkRoot guard
+- HANDOFF_READY Lease expiry + old-owner fencing
+- Work Session stop-on-handoff
+- successor normal Claim Generation+1 + handoff read gate
 
 当前聊天执行环境仍不能完成“从 GitHub fresh clone 当前提交再运行”的真实网络验收，因此不能把 exact-current full suite 写成 PASS；仓库内本地 bare-Git 回归入口已经具备。
 
@@ -544,8 +624,8 @@ READY Work Market                         ✅ CODE / TEST PRESENT
 Artifact Durability Receipt               ✅ CODE / TEST PRESENT
 Capability-aware matching                 ✅ CODE / TEST PRESENT
 Bounded Work Session                      ✅ CODE / TEST PRESENT
-Partial Handoff                           ⏳
-Resource Admission / Backpressure         ⏳
+Partial Handoff                           ✅ CODE / TEST PRESENT
+Resource Admission / Backpressure         ⏳ NEED-DRIVEN
 GitHub fresh-clone 当前提交实跑             ⏳
 外部项目仓库 adapter                       ❌ 当前禁止
 AI_book 调度                                ❌ 当前禁止
@@ -556,15 +636,16 @@ AI_book 调度                                ❌ 当前禁止
 
 1. Durable state lives in files/Git, not chat memory.
 2. Git is the arbiter; Python is the executor; CI is optional.
-3. Task publication / Market listing / capability match / Work Session are not ownership; canonical Claim is ownership.
-4. Agents may disappear; Lease/Fencing must recover safely.
-5. Ref race means recompute from latest canonical truth, never force/rebase stale decisions.
-6. Rule changes require visible early samples before broad parallelization.
-7. Review, preview, durability and completion are distinct facts.
-8. Project outputs stay inside explicit WorkRoot authority.
-9. Session deadline controls new Claims; it does not abandon an existing Claim.
-10. Kernel stays domain-neutral and small; do not import historical complexity without a current need.
-11. Prove one-repository operation before multi-repository orchestration.
+3. Task publication / Market listing / capability match / Work Session / Handoff are not ownership; canonical Claim is ownership.
+4. Handoff is never Done or Acceptance PASS; successor must Claim first and revalidate partial work.
+5. Agents may disappear; Lease/Fencing must recover safely.
+6. Ref race means recompute from latest canonical truth, never force/rebase stale decisions.
+7. Rule changes require visible early samples before broad parallelization.
+8. Review, preview, durability and completion are distinct facts.
+9. Project outputs stay inside explicit WorkRoot authority.
+10. Session deadline controls new Claims; it does not abandon an existing Claim.
+11. Kernel stays domain-neutral and small; do not import historical complexity without a current need.
+12. Prove one-repository operation before multi-repository orchestration.
 
 ## License
 
