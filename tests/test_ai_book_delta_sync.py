@@ -21,6 +21,7 @@ def load_module(name: str, path: Path):
 
 ext = load_module("control_extensions_test", ROOT / "tools/control_extensions.py")
 uos = load_module("uos_delta_test", ROOT / "tools/uos.py")
+runner = load_module("canonical_runner_delta_test", ROOT / "tools/canonical_runner.py")
 
 
 class AiBookDeltaSyncTests(unittest.TestCase):
@@ -36,6 +37,18 @@ class AiBookDeltaSyncTests(unittest.TestCase):
             with self.assertRaises(ext.ControlExtensionError):
                 ext.enforce_execution_epoch(root, "claim", "STALE")
             ext.enforce_execution_epoch(root, "claim", "EPOCH_TEST_1")
+
+    def test_epoch_ack_is_removed_before_quality_business_routing(self) -> None:
+        ack, clean = runner.extract_execution_ack(
+            ["--ack-execution-epoch", "EPOCH_1", "complete", "--task", "TASK_A"]
+        )
+        self.assertEqual(ack, "EPOCH_1")
+        self.assertEqual(clean, ["complete", "--task", "TASK_A"])
+        ack2, clean2 = runner.extract_execution_ack(
+            ["--ack-execution-epoch=EPOCH_2", "task", "publish", "--project", "DEMO"]
+        )
+        self.assertEqual(ack2, "EPOCH_2")
+        self.assertEqual(clean2[:2], ["task", "publish"])
 
     def test_project_work_root_denies_cross_project_output(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
