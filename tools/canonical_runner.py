@@ -107,6 +107,33 @@ def strip_transport_args(argv: list[str]) -> list[str]:
     return out
 
 
+def extract_execution_ack(argv: list[str]) -> tuple[str, list[str]]:
+    """Remove the global Epoch ack while preserving the business command shape.
+
+    Quality/preview helpers intentionally receive argv beginning with
+    `task`, `claim`, `complete`, etc. The ack is reinserted only when the
+    isolated local state machine is invoked.
+    """
+    out: list[str] = []
+    ack = ""
+    index = 0
+    while index < len(argv):
+        item = argv[index]
+        if item == "--ack-execution-epoch":
+            if index + 1 >= len(argv):
+                raise CanonicalRunError("--ack-execution-epoch requires a value")
+            ack = argv[index + 1]
+            index += 2
+            continue
+        if item.startswith("--ack-execution-epoch="):
+            ack = item.split("=", 1)[1]
+            index += 1
+            continue
+        out.append(item)
+        index += 1
+    return ack, out
+
+
 def option_value(argv: list[str], name: str) -> str:
     for index, item in enumerate(argv):
         if item == name and index + 1 < len(argv):
@@ -380,7 +407,8 @@ def run_canonical(
     except PublishError as exc:
         raise CanonicalRunError(str(exc)) from exc
 
-    base_argv = strip_transport_args(argv)
+    stripped_argv = strip_transport_args(argv)
+    execution_ack, base_argv = extract_execution_ack(stripped_argv)
     target_ref = f"refs/heads/{branch}"
     remote_ref = f"refs/remotes/{remote}/{branch}"
     last_proc: subprocess.CompletedProcess[str] | None = None
@@ -413,8 +441,11 @@ def run_canonical(
             env["UOS_INTERNAL_LOCAL"] = "1"
             env["UOS_CALLER_ROOT"] = str(caller_root)
             env["PYTHONDONTWRITEBYTECODE"] = "1"
+            local_globals = ["--transport", "local"]
+            if execution_ack:
+                local_globals.extend(["--ack-execution-epoch", execution_ack])
             proc = subprocess.run(
-                [sys.executable, str(worktree / "tools/uos.py"), "--transport", "local", *local_argv],
+                [sys.executable, str(worktree / "tools/uos.py"), *local_globals, *local_argv],
                 cwd=worktree,
                 env=env,
                 text=True,
