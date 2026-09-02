@@ -2,7 +2,7 @@ Schema: UOS_PROJECT_V1
 ProjectID: TRAVEL_GUIDE
 Title: Travel Guide — guided itinerary planning pilot
 State: ACTIVE
-IntentVersion: TRAVEL_GUIDE_INTENT_V3
+IntentVersion: TRAVEL_GUIDE_INTENT_V4
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/TRAVEL_GUIDE
 Goal: Build five evidence-based one-day Dujiangyan travel plans with route maps, guide PDFs, a research digest, and a respectful communication/gifting companion while validating privacy-aware UOS orchestration.
@@ -15,6 +15,11 @@ MaxTaskCount: 50
 CurrentPlannedTaskCount: 24
 MapWorkflow: AI_PROMPT_IMAGE_RECEIPT_VERIFY_V1
 MapPolicy: projects/TRAVEL_GUIDE/MAP_VALIDATION_POLICY.md
+OperatorReviewPolicy: ONE_CONFIRMATION_THEN_CONTINUE
+OperatorWarmupRequired: 1
+OperatorWarmupStatus: SATISFIED
+OperatorWarmupEvidence: user-approved-first-requirements-and-continuation
+PostWarmupMode: PARALLEL_ALLOWED_WITH_SAMPLING_AND_HIGH_RISK_REVIEW
 NonGoals:
   - No AI_book dependency; only reuse the generic prompt-image-receipt pattern inside this UOS project
   - No cross-repository writes
@@ -29,5 +34,5 @@ AcceptanceSummary:
   - Encrypted pre-trip communication guide
   - Current transport/weather/opening/crowd refresh close to departure
   - Total task catalog stays at or below 50
-  - Operator-visible warmup/review gate is respected
+  - Only one routine operator confirmation is required for this small project; later checks are sampling/high-risk/final-audit driven
 OperatorPhaseRef: docs/CURRENT_PHASE.md
