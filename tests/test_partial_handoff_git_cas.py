@@ -19,6 +19,7 @@ TOOLS = [
     "agent_matching.py",
     "work_session.py",
     "partial_handoff.py",
+    "handoff_takeover.py",
 ]
 EPOCH = "EPOCH_HANDOFF_GIT_1"
 
@@ -98,6 +99,14 @@ def session(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedPr
 def handoff(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return sh(
         [sys.executable, "tools/partial_handoff.py", "--ack-execution-epoch", EPOCH, *args],
+        cwd,
+        check=check,
+    )
+
+
+def takeover(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return sh(
+        [sys.executable, "tools/handoff_takeover.py", "--ack-execution-epoch", EPOCH, *args],
         cwd,
         check=check,
     )
@@ -206,6 +215,7 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             self.assertEqual(hand["state"], "HANDOFF_READY")
             self.assertFalse(hand["authority"]["transfers_ownership"])
             self.assertEqual(hand["release"]["expected_successor_generation"], 2)
+            self.assertEqual(hand["derived_state_refresh"]["status"], "REFRESHED")
             checkpoint_rel = hand["artifacts"][0]["checkpoint_path"]
             self.assertEqual(hand["artifacts"][0]["source_path"], "projects/DEMO/checkpoint.txt")
             self.assertTrue(checkpoint_rel.startswith("coordination/handoff_artifacts/TASK_A/"))
@@ -228,6 +238,8 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             )
             self.assertEqual(session_state["state"], "STOPPED")
             self.assertEqual(session_state["stop_reason"], "HANDOFF_READY")
+            market = (inspect / "coordination/runtime/WORK_MARKET.csv").read_text(encoding="utf-8")
+            self.assertIn("TASK_A", market)
 
             old_renew = uos(
                 owner,
@@ -243,31 +255,20 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             self.assertEqual(old_renew.returncode, 2)
             self.assertIn("FENCED", old_renew.stderr)
 
-            grant_b = json.loads(
-                uos(
+            take = json.loads(
+                takeover(
                     successor,
-                    "claim",
                     "--agent-id",
                     "AGENT_B",
                     "--task",
                     "TASK_A",
                 ).stdout
             )
+            self.assertEqual(take["status"], "CLAIM_GRANTED_WITH_HANDOFF")
+            grant_b = take["grant"]
+            read = take["handoff"]
             self.assertEqual(int(grant_b["LeaseGeneration"]), 2)
             self.assertNotEqual(grant_b["LeaseToken"], grant_a["LeaseToken"])
-
-            read = json.loads(
-                handoff(
-                    successor,
-                    "read",
-                    "--task",
-                    "TASK_A",
-                    "--agent-id",
-                    "AGENT_B",
-                    "--lease-token",
-                    grant_b["LeaseToken"],
-                ).stdout
-            )
             self.assertTrue(read["successor"]["ownership_verified"])
             self.assertTrue(read["successor"]["generation_advanced"])
             self.assertEqual(read["artifacts"][0]["checkpoint_path"], checkpoint_rel)
