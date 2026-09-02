@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1]
-TOOLS = ["uos.py", "canonical_runner.py", "canonical_publish.py", "quality_gate.py"]
+TOOLS = ["uos.py", "canonical_runner.py", "canonical_publish.py", "quality_gate.py", "control_extensions.py"]
 
 
 def sh(args: list[str], cwd: Path, *, check: bool = True, env=None) -> subprocess.CompletedProcess[str]:
@@ -154,6 +154,7 @@ class GitCasLifecycleTests(unittest.TestCase):
             clone(remote, check)
             self.assertEqual((check / "projects/DEMO/result.txt").read_text(), "canonical result\n")
             self.assertTrue((check / "coordination/completed/TASK_A.done").exists())
+            self.assertTrue((check / "coordination/quality/durability/TASK_A.json").exists())
             self.assertFalse((check / "coordination/claims/TASK_A.lock").exists())
             status = json.loads((check / "coordination/runtime/STATUS.json").read_text())
             self.assertEqual(status["projects"]["DEMO"]["done"], 1)
@@ -265,6 +266,9 @@ class GitCasLifecycleTests(unittest.TestCase):
             with (check / "coordination/runtime/TASK_STATUS.csv").open(newline="", encoding="utf-8") as handle:
                 ids = {row["id"] for row in csv.DictReader(handle)}
             self.assertEqual(ids, {"TASK_A", "TASK_B"})
+            with (check / "coordination/runtime/WORK_MARKET.csv").open(newline="", encoding="utf-8") as handle:
+                market_ids = {row["canonical_id"] for row in csv.DictReader(handle)}
+            self.assertEqual(market_ids, {"TASK_A", "TASK_B"})
 
     def test_repeated_status_is_canonical_noop_when_state_is_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
