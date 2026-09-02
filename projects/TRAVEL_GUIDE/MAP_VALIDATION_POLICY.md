@@ -25,6 +25,22 @@ Research must explicitly compare practical arrival/departure choices serving the
 - Time-sensitive transport, access and operating claims should preferentially use sources current to 2026 and be refreshed close to departure.
 - Older historical/cultural sources may be used only for stable facts, not current access or operation status.
 
+## AI image-generation workflow for complex route maps
+
+The route maps use an AI_book-style **prompt → image → receipt → verify → revise** loop. Image generation is a rendering stage only; it must never invent operational geography.
+
+For each of the five schemes:
+
+1. Build a `MAP_FACT_SHEET` from validated research: exact current POI names, verified stop order, station/entrance/exit names, relative orientation, transport mode, estimated segment duration, meal/rest nodes and prohibited/obsolete names.
+2. Produce a dedicated image-generation prompt from that fact sheet. The prompt must require a clean phone-readable travel route diagram rather than a decorative fantasy map.
+3. Generate one independent map image for that scheme.
+4. Return a structured generation receipt recording FigureID, prompt version, source fact-sheet version, generation time and intended stop sequence.
+5. Inspect the generated image against the fact sheet. Check every label, stop, ordering arrow, station, entrance/exit and transport/walking segment.
+6. If any critical geography, label or ordering is wrong, mark the receipt `REJECTED`, revise the prompt and regenerate. Do not patch an incorrect map by merely explaining the error in prose.
+7. Only a map with a `VERIFIED` receipt may be embedded into the final guide PDF.
+
+The AI image may simplify scale and geometry for readability, but it may not relocate a critical POI to the wrong side of the route, fabricate a station/entrance, substitute a stale name, or imply a connection that has not been validated.
+
 ## Map output standard
 
 Each scheme map must:
@@ -35,8 +51,17 @@ Each scheme map must:
 - identify meal/rest nodes separately from attractions;
 - avoid plotting the private home-origin point;
 - include a `Validated` note with source date or refresh date;
-- ship as SVG + PNG and remain legible on a phone.
+- be legible on a phone;
+- have a paired prompt file and generation receipt;
+- keep the final accepted image plus an archival source representation when practical.
+
+Preferred canonical map bundle per scheme:
+
+- `SCHEME_X_MAP_PROMPT.md`
+- `SCHEME_X_MAP.png`
+- `SCHEME_X_MAP_RECEIPT.md`
+- optional `SCHEME_X_MAP.svg` only when a reliable vector derivative is available; SVG is no longer mandatory if it would reduce geographic fidelity.
 
 ## Acceptance failure conditions
 
-A map fails review if any critical POI is misplaced, obsolete, ambiguously named, inaccessible by the shown connection, or based only on stale/unverified location evidence.
+A map fails review if any critical POI is misplaced, obsolete, ambiguously named, inaccessible by the shown connection, based only on stale/unverified location evidence, or if its generation receipt has not passed visual/geographic verification.
