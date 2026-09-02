@@ -113,7 +113,7 @@ def parse_scalar(path: Path) -> dict[str, str]:
 
 
 class PartialHandoffGitCasTests(unittest.TestCase):
-    def test_handoff_ready_preserves_artifact_and_successor_reclaims_generation(self) -> None:
+    def test_handoff_ready_preserves_checkpoint_and_successor_reclaims_generation(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             td = Path(raw)
             remote = setup_remote(td)
@@ -198,7 +198,7 @@ class PartialHandoffGitCasTests(unittest.TestCase):
                     "--known-failures",
                     "final output not generated",
                     "--next-action",
-                    "read checkpoint then finish final output",
+                    "restore checkpoint then finish final output",
                     "--context-ref",
                     "orchestration/projects/DEMO/PROJECT.yaml",
                 ).stdout
@@ -206,12 +206,16 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             self.assertEqual(hand["state"], "HANDOFF_READY")
             self.assertFalse(hand["authority"]["transfers_ownership"])
             self.assertEqual(hand["release"]["expected_successor_generation"], 2)
+            checkpoint_rel = hand["artifacts"][0]["checkpoint_path"]
+            self.assertEqual(hand["artifacts"][0]["source_path"], "projects/DEMO/checkpoint.txt")
+            self.assertTrue(checkpoint_rel.startswith("coordination/handoff_artifacts/TASK_A/"))
 
             inspect = td / "inspect"
             clone(remote, inspect)
             self.assertTrue((inspect / "coordination/handoffs/TASK_A.handoff").exists())
+            self.assertFalse((inspect / "projects/DEMO/checkpoint.txt").exists())
             self.assertEqual(
-                (inspect / "projects/DEMO/checkpoint.txt").read_text(encoding="utf-8"),
+                (inspect / checkpoint_rel).read_text(encoding="utf-8"),
                 "safe partial state\n",
             )
             self.assertFalse((inspect / "coordination/completed/TASK_A.done").exists())
@@ -266,6 +270,7 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             )
             self.assertTrue(read["successor"]["ownership_verified"])
             self.assertTrue(read["successor"]["generation_advanced"])
+            self.assertEqual(read["artifacts"][0]["checkpoint_path"], checkpoint_rel)
             self.assertIn("UNVERIFIED_PARTIAL_WORK", read["warning"])
 
             old_complete = uos(
@@ -301,6 +306,7 @@ class PartialHandoffGitCasTests(unittest.TestCase):
             self.assertTrue((check / "coordination/completed/TASK_A.done").exists())
             self.assertFalse((check / "coordination/claims/TASK_A.lock").exists())
             self.assertTrue((check / "coordination/handoffs/TASK_A.handoff").exists())
+            self.assertTrue((check / checkpoint_rel).exists())
             self.assertEqual(
                 (check / "projects/DEMO/final.txt").read_text(encoding="utf-8"),
                 "successor completed after revalidation\n",
