@@ -1,0 +1,26 @@
+{
+  "attempt": 1,
+  "completed_at": "2026-09-03T03:40:13Z",
+  "outputs": [
+    "projects/TRAVEL_GUIDE/research/book/spots/YUZUI.md"
+  ],
+  "presentation": {
+    "do_not_send_user_to_repository_for_routine_inspection": true,
+    "must_include_summary": true,
+    "must_present_in_conversation": true,
+    "must_render_or_attach_previews": false
+  },
+  "previews": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "project_warmup_override_satisfied": true,
+  "review_reason": "NOT_SAMPLED",
+  "review_required": false,
+  "review_status": "AUTO_ACCEPTED",
+  "risk_tier": "LOW",
+  "rule_epoch": 1,
+  "rule_version": "VISIBILITY_V1",
+  "schema": "UOS_QUALITY_EVENT_V1",
+  "sequence": 16,
+  "task": "TASK_TRAVEL_SPOT_YUZUI_01",
+  "title": "Deep dossier for Yuzui"
+}

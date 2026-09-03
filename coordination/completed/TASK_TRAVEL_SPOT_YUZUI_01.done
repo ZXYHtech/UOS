@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_SPOT_YUZUI_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_CULTURE_REVIEWS
 LeaseGeneration: 1
 LeaseToken: 7374ee330c2dd30366040660a918bbc1
-ClaimedAt: 2026-09-03T03:37:30Z
-LeaseExpiresAt: 2026-09-03T05:07:30Z
-FencingToken: 1:7374ee330c2dd30366040660a918bbc1
+CompletedAt: 2026-09-03T03:40:13Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_YUZUI_01.json
