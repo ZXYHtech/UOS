@@ -1,0 +1,26 @@
+canonical_id,project_id,priority,role,title,workstream,size_class,min_capability_tier,context_class,tool_requirements,output
+TASK_TRAVEL_GUIDE_INTAKE_01,TRAVEL_GUIDE,1,ARCHITECT,Formalize public requirements and encrypted private context,travel_intake,S,3,M,web,projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md
+TASK_UOS_STANDALONE_KERNEL_EXPORT_01,UOS_CORE,1,KERNEL_MAINTAINER,Extract generic UOS kernel from AI_book into standalone UOS,kernel_export,XL,4,XL,git;python,projects/UOS_CORE/output/TASK_UOS_STANDALONE_KERNEL_EXPORT_01.md
+TASK_TRAVEL_FIELD_AMAP_MATRIX_01,TRAVEL_GUIDE_DEPTH,2,ANALYST,Build AMap travel-time decision matrix,field_amap,L,4,L,web;python,projects/TRAVEL_GUIDE/research/book/field/AMAP_TIME_MATRIX.md
+TASK_TRAVEL_FIELD_FACILITIES_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Audit field facilities and rest services,field_facilities,M,4,L,web,projects/TRAVEL_GUIDE/research/book/field/FACILITIES.md
+TASK_TRAVEL_FIELD_RAIN_CROWD_01,TRAVEL_GUIDE_DEPTH,2,PLANNER,Build rain and crowd fallback decision tree,field_fallback,M,3,M,web,projects/TRAVEL_GUIDE/research/book/field/RAIN_CROWD_DECISION_TREE.md
+TASK_TRAVEL_FIELD_RETURN_RAIL_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Build return rail candidate matrix,field_return_rail,M,4,L,web,projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md
+TASK_TRAVEL_FOOD_XIAOZHUO_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier for Courtyard Xiaozhuo,food_courtyard,M,3,M,web,projects/TRAVEL_GUIDE/research/book/food/COURTYARD_MEAL.md
+TASK_TRAVEL_FOOD_XIJIE_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier for quiet old-city option,food_quiet,M,3,M,web,projects/TRAVEL_GUIDE/research/book/food/QUIET_OLD_CITY_MEAL.md
+TASK_TRAVEL_FOOD_ZHAOMAI_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep snack dossier for Zhao Maimian,food_snack,M,3,M,web,projects/TRAVEL_GUIDE/research/book/food/REPRESENTATIVE_SNACK.md
+TASK_TRAVEL_POI_SOURCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit POI names access and map sources,evidence_poi,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/POI_SOURCE_AUDIT.md
+TASK_TRAVEL_PROFILE_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit visitor profile evidence,evidence_profile,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/VISITOR_PROFILE_AUDIT.md
+TASK_TRAVEL_REVIEWS_2026_DEEP_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep audit of 2024-2026 visitor reviews,evidence_reviews,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/REVIEWS_2026.md
+TASK_TRAVEL_SEASON_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit seasonality and visitor-flow evidence,evidence_season,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/SEASONALITY_AUDIT.md
+TASK_TRAVEL_SPOT_ANLAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Anlan Bridge,spot_anlan,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/ANLAN.md
+TASK_TRAVEL_SPOT_BAOPINGKOU_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Baopingkou,spot_baopingkou,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/BAOPINGKOU.md
+TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Dujiangyan Station,spot_station,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/DUJIANGYAN_STATION.md
+TASK_TRAVEL_SPOT_ERWANG_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Erwang Temple,spot_erwang,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/ERWANG.md
+TASK_TRAVEL_SPOT_FEISHAYAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Feishayan,spot_feishayan,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/FEISHAYAN.md
+TASK_TRAVEL_SPOT_FULONG_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Fulong Temple,spot_fulong,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/FULONG.md
+TASK_TRAVEL_SPOT_GATE1_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Scenic Area Gate 1,spot_gate1,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/GATE1.md
+TASK_TRAVEL_SPOT_LIDUI_STATION_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Lidui Park Station,spot_lidui_station,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/LIDUI_PARK_STATION.md
+TASK_TRAVEL_SPOT_NANQIAO_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Nanqiao,spot_nanqiao,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/NANQIAO.md
+TASK_TRAVEL_SPOT_OLDCITY_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Guanxian Old City,spot_oldcity,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/GUANXIAN_OLD_CITY.md
+TASK_TRAVEL_SPOT_QINYAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Qinyan Tower and Gate 6,spot_qinyan,M,4,L,web,projects/TRAVEL_GUIDE/research/book/spots/QINYAN.md
+TASK_TRAVEL_SPOT_YUZUI_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Yuzui,spot_yuzui,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/YUZUI.md

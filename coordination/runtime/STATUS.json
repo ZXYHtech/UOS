@@ -1,0 +1,35 @@
+{
+  "projects": {
+    "QUICKBOARD": {
+      "blocked": 0,
+      "claimed": 0,
+      "done": 5,
+      "ready": 0,
+      "total": 5
+    },
+    "TRAVEL_GUIDE": {
+      "blocked": 23,
+      "claimed": 0,
+      "done": 0,
+      "ready": 1,
+      "total": 24
+    },
+    "TRAVEL_GUIDE_DEPTH": {
+      "blocked": 3,
+      "claimed": 0,
+      "done": 0,
+      "ready": 23,
+      "total": 26
+    },
+    "UOS_CORE": {
+      "blocked": 4,
+      "claimed": 0,
+      "done": 0,
+      "ready": 1,
+      "total": 5
+    }
+  },
+  "schema": "UOS_SINGLE_REPO_STATUS_V1",
+  "scope": "SAME_REPOSITORY_ONLY",
+  "work_market": "coordination/runtime/WORK_MARKET.csv"
+}
