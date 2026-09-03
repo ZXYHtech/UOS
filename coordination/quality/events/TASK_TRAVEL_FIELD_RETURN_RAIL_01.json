@@ -1,0 +1,26 @@
+{
+  "attempt": 1,
+  "completed_at": "2026-09-03T04:36:02Z",
+  "outputs": [
+    "projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md"
+  ],
+  "presentation": {
+    "do_not_send_user_to_repository_for_routine_inspection": true,
+    "must_include_summary": true,
+    "must_present_in_conversation": true,
+    "must_render_or_attach_previews": false
+  },
+  "previews": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "project_warmup_override_satisfied": true,
+  "review_reason": "NOT_SAMPLED",
+  "review_required": false,
+  "review_status": "AUTO_ACCEPTED",
+  "risk_tier": "MEDIUM",
+  "rule_epoch": 1,
+  "rule_version": "VISIBILITY_V1",
+  "schema": "UOS_QUALITY_EVENT_V1",
+  "sequence": 23,
+  "task": "TASK_TRAVEL_FIELD_RETURN_RAIL_01",
+  "title": "Build return rail candidate matrix"
+}

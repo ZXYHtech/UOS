@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md",
+      "sha256": "88388031cb27f6898c733f2b471f4e20f34cc0af5a683c0d6a49699d1910a0bc"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_FIELD_RETURN_RAIL_01"
+}
