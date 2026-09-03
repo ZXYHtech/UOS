@@ -8,13 +8,15 @@ For this phase:
 
 - UOS may create and manage projects whose definitions, task state and outputs live inside `ZXYHtech/UOS`.
 - UOS must **not** dispatch, claim, mutate, synchronize or manage AI_book project work.
-- AI_book may be read only as historical evidence for domain-neutral kernel lessons.
+- AI_book may be read only as historical evidence for domain-neutral Kernel lessons.
 - Cross-repository task routing is not active.
 - Multi-repository orchestration requires a new explicit operator decision.
 
-## Phase goal
+This boundary is unchanged by the Phase 1–6 Kernel synchronization work.
 
-Prove this lifecycle entirely inside one repository, including independent clones of that same repository:
+## Current lifecycle target
+
+The standalone lifecycle now includes both the direct fast path and the high-contention completion fallback:
 
 ```text
 Boot / current ExecutionEpoch
@@ -22,22 +24,26 @@ Boot / current ExecutionEpoch
 → Publish Tasks inside Project WorkRoot
 → Reconcile READY Work Market
 → Capability-aware discovery when used
-→ canonical Agent Claim
+→ canonical Broker V2 Claim
+   Request → Grant → active Lock
 → Work
-→ Renew / Fencing
-→ Complete outputs + preview + durability receipt + .done
-   OR safe Partial Handoff when completion is not possible
-→ Visible Result / Preview Gate when completed
-→ Operator Review when required
-→ bounded continuation decision when a Work Session is active
-→ Next compatible Claim / successor takeover / safe stop
+→ Renew / Lease / Fencing
+→ Complete
+   ├─ direct latest-main CAS → canonical Done
+   └─ pure main-ref race exhaustion only
+      → non-canonical Completion Outbox
+      → mechanical batch Integration
+      → latest-main authority/fencing/read-set revalidation
+      → canonical Done
+→ durability + preview / quality visibility gate
+→ operator review when required
+→ bounded Work Session continuation
+→ next compatible Claim / exact-current recovery / handoff / safe stop
 ```
 
 ## Ordinary workload milestone
 
-`QUICKBOARD` is **COMPLETED**.
-
-It proved the first ordinary same-repository lifecycle through SPEC → UI/LOGIC → DOCS → REVIEW.
+`QUICKBOARD` is completed and remains the first ordinary same-repository lifecycle milestone through SPEC → UI/LOGIC → DOCS → REVIEW.
 
 # ExecutionEpoch — ACTIVE
 
@@ -47,60 +53,26 @@ Anchor:
 .uos/EXECUTION_CONTRACT.yaml
 ```
 
-Current value:
+Current Epoch:
 
 ```text
 UOS_EXEC_20260902_01
 ```
 
-Critical `uos.py` control-plane commands require the current acknowledgement:
-
-```text
-project
-task
-claim
-renew
-complete
-reconcile
-```
-
-`task_requirements.py`, `work_session.py` and `partial_handoff.py` canonical mutations independently enforce the same current Epoch.
-
-`boot`, status views and handoff read are discovery/read entrypoints.
-
-Purpose: old Agent instructions or old chat context cannot silently create new canonical mutations after execution semantics change.
+Critical lifecycle mutations require the current acknowledgement. Old Agent instructions must not silently mutate ownership or completion state after execution semantics change.
 
 # Quality Visibility RuleEpoch 1 — ACTIVE
 
-Policy:
+Policy anchors:
 
 ```text
 .uos/QUALITY_VISIBILITY_POLICY.yaml
 docs/QUALITY_VISIBILITY_GATE.md
 ```
 
-Current behavior:
+Current behavior still requires visible operator review during warmup, deterministic later sampling, and mandatory review for high-risk work. A pending/rejected review prevents unrelated next Claims according to policy.
 
-```text
-completion #1 → mandatory visible operator review
-completion #2 → mandatory visible operator review
-completion #3 → mandatory visible operator review
-completion #4 → normal
-completion #5 → deterministic sample review
-completion #10 → deterministic sample review
-...
-HIGH risk       → mandatory review
-```
-
-During the first three reviews only one new task Claim may be active at a time. A pending review pauses unrelated new Claims.
-
-The Agent must present result summaries and previews directly in conversation; routine review must not require the user to browse GitHub.
-
-If the operator rejects a result, the standalone pilot revokes that task's current `.done`, retains feedback and allows the same task to be corrected/re-reviewed before unrelated work resumes.
-
-## Preview contract
-
-Inspectability is part of original task acceptance:
+Inspectability remains part of task acceptance:
 
 ```text
 SVG          → SVG + PNG
@@ -110,73 +82,52 @@ PPT/DOC/XLS  → source + preview PDF
 CAD/EDA      → source + preview PNG
 ```
 
-Known preview companions are added at Task Publish. Completion refuses missing required previews.
+# AI_book generic delta status
 
-# AI_book generic delta synchronized on 2026-09-02
-
-Primary inventory:
+The 2026-09-03 Claim/Concurrency synchronization inventory is now closed through Phase 6:
 
 ```text
-docs/AI_BOOK_UPSTREAM_DELTA_20260902.md
+docs/AI_BOOK_CLAIM_DELTA_SYNC_20260903.md
 ```
 
-## P0 integrated
+Implemented generic Kernel phases:
 
 ```text
-ExecutionEpoch stale-Agent gate
-Project WorkRoot output authority
-READY-only WORK_MARKET.csv
-UOS_ARTIFACT_DURABILITY_V1 receipt
+Phase 1  high-contention exact-task ingress
+Phase 2  immutable Claim Request + Grant + Broker V2 CREATE/RECLAIM
+Phase 3  exact-predecessor reclaim provenance + Claim Integrity
+Phase 4  contention / fencing lifecycle acceptance
+Phase 5  Work Session V2 + Claim CAS telemetry / observability
+Phase 6  Completion Outbox + mechanical batch Integration
+Closeout WAITING_INTEGRATION + Outbox queue/batch/wait metrics
 ```
 
-## P1A integrated
+This does not enable AI_book dispatch and does not claim full AI_book Kernel parity.
+
+# Canonical ownership model
+
+Current ownership is not a filename convention or Agent announcement. It is:
 
 ```text
-Capability / Tool / Context Matching
-Bounded Work Session
-Task Agent requirement sidecar
+immutable Claim Request
++ immutable Claim Grant
++ matching current active Lock
++ current LeaseGeneration / LeaseToken / Fencing
 ```
 
-Details:
+Primary authority:
 
 ```text
-docs/WORK_SESSION_AND_AGENT_MATCHING.md
-docs/AI_BOOK_P1_SYNC_20260902.md
+UOS_CLAIM_BROKER_V2
 ```
 
-## P1B integrated
+RECLAIM increments `LeaseGeneration` and binds exact predecessor provenance. Old tokens and old-generation candidates are fenced.
 
-```text
-Partial Handoff
-```
-
-Details:
-
-```text
-docs/PARTIAL_HANDOFF.md
-docs/AI_BOOK_P1B_SYNC_20260902.md
-```
-
-Remaining P1 candidate:
-
-```text
-Resource Admission / Backpressure NEED-DRIVEN
-```
-
-P2 remains deferred:
-
-```text
-Role Broker / role leases
-OUTBOX_INGEST
-complex Kernel self-orchestration
-multi-repository adapters/routing
-```
+Claim Request/Grant are immutable ownership anchors; they are not a second scheduler.
 
 # Artifact durability invariant
 
-A visible/accepted result must not be confused with durable repository persistence.
-
-Standalone Complete creates:
+Canonical direct completion creates the business outputs/previews, durability receipt and `.done`, and removes the active Lock in one candidate canonical tree.
 
 ```text
 business outputs / previews
@@ -185,9 +136,7 @@ business outputs / previews
 - coordination/claims/<TASK>.lock
 ```
 
-in one candidate canonical tree.
-
-The durability receipt binds each declared artifact path to a SHA-256 and records `SAME_CANONICAL_TREE_TRANSACTION`.
+The receipt binds artifact paths and SHA-256 digests.
 
 Therefore:
 
@@ -198,20 +147,13 @@ Preview visible
 ≠ Task canonical completion
 ```
 
-Partial Handoff is a separate recovery fact and never creates this completion durability receipt.
+A Partial Handoff and a staged Outbox candidate are also not canonical completion.
 
 # Project WorkRoot authority
 
-Current projects are compatible with the rule:
+Tasks remain constrained to their owning project WorkRoot. Task Publish, Complete and recovery paths refuse unauthorized cross-project outputs.
 
-```text
-UOS_CORE   → projects/UOS_CORE/...
-QUICKBOARD → projects/QUICKBOARD/...
-```
-
-Task Publish and Complete refuse cross-project output paths.
-
-Partial Handoff source artifacts are also restricted to the owning Project WorkRoot before they are copied into kernel-managed immutable checkpoint paths.
+The matching layer may refine task suitability but never changes path authority or ownership.
 
 # Work Market + Agent Matching
 
@@ -221,29 +163,11 @@ Every reconcile derives:
 coordination/runtime/WORK_MARKET.csv
 ```
 
-It contains READY work and compact capability/context/tool metadata.
+READY work may be filtered by capability tier, tools, context capacity and optional role constraints through `tools/agent_matching.py`.
 
-The optional matching path is:
+Matching is discovery only. Final ownership always goes through canonical Claim/Broker semantics.
 
-```text
-latest canonical WORK_MARKET
-→ tools/agent_matching.py
-→ capability/tool/context/role filter
-→ selected compatible Task
-→ tools/uos.py claim
-```
-
-Matching is not ownership.
-
-Optional project-local overrides:
-
-```text
-orchestration/projects/<PROJECT>/TASK_AGENT_REQUIREMENTS.csv
-```
-
-They may only refine matching hints; they do not alter task authority.
-
-# Bounded Work Session
+# Work Session V2
 
 Tool:
 
@@ -251,37 +175,99 @@ Tool:
 tools/work_session.py
 ```
 
-State:
+Canonical session state:
 
 ```text
 coordination/work_sessions/<AGENT>/<SESSION>.json
 ```
 
-A Work Session records a deadline, maximum task count, project scope and Agent capability envelope.
+A Work Session is a bounded continuation guard, not a scheduler. It records deadline, task limit, project scope, Agent capability envelope, transition events and metrics.
 
-It is a continuation guard, not a scheduler.
+No unrelated next Claim is allowed until the current task has canonical Done, durable artifacts and a released quality/review gate.
 
-No unrelated next Claim is allowed until the current task has:
-
-```text
-canonical .done
-+ durability receipt = DURABLE_READY
-+ Quality Event gate released
-```
-
-Important stop behavior:
+Important outcomes now include:
 
 ```text
-review PENDING  → STOP_REVIEW_PENDING
-review REJECTED → REWORK_REQUIRED on same task
-missing receipt → STOP_DURABILITY_PENDING
-missing quality event while policy enabled → fail closed
-deadline with no current Claim → stop before new Claim
-deadline with current Claim → WORK_CURRENT_TASK + stop_after_current=true
-HANDOFF_READY on current task → STOPPED / stop_reason=HANDOFF_READY
+WORK_CURRENT_TASK         current owned work is still incomplete
+CURRENT_TASK_RECLAIMED    stale current Lease recovered on the exact same task
+OWNERSHIP_LOST            canonical ownership moved elsewhere / recovery failed
+RECOVERY_REQUIRED         ambiguous state; fail closed instead of guessing
+WAITING_INTEGRATION       exact current Grant already has a staged Completion Outbox ref
+STOP_REVIEW_PENDING       visibility/review gate blocks continuation
+REWORK_REQUIRED           same rejected task must be corrected
+STOP_DURABILITY_PENDING   canonical durability not complete
+SESSION_STOPPED           deadline / max tasks / operator stop reached
 ```
 
-If Claim succeeds before Session bookkeeping is durably updated, the next session check may adopt the single live canonical Claim for that Agent. More than one live Claim yields `RECOVERY_REQUIRED` rather than guessing.
+## WAITING_INTEGRATION invariant
+
+If the current completion was already staged after direct-main race exhaustion, Session `next` checks the exact current canonical `GrantID` and exact expected Outbox ref.
+
+When found, it returns `WAITING_INTEGRATION` and instructs the Agent not to modify or re-complete the task. Mechanical ingest must run first.
+
+The exact GrantID check is important because retained prior-generation Outbox refs are audit/recovery evidence. A Generation+1 owner must not be blocked by a Generation-1 candidate.
+
+# Completion Outbox / Integration Lane — ACTIVE
+
+Tool:
+
+```text
+tools/completion_outbox.py
+python tools/uos.py outbox status
+python tools/uos.py outbox ingest
+```
+
+The Outbox is targeted write-plane backpressure for validated Completion candidates. It is not a general ownership queue.
+
+Fast path remains direct canonical Complete. Only pure canonical main-ref race exhaustion after successful local completion validation may stage a fallback candidate.
+
+Core invariants:
+
+```text
+Outbox != ownership
+Outbox != Done
+Claim/Renew never use Outbox
+non-race Complete errors never become staged success
+old-generation candidate cannot integrate after RECLAIM
+same-path/read-set conflicts fail closed
+latest-main authority is revalidated during ingest
+runtime views are reconciled from the final latest-main batch tree
+```
+
+The accepted 2 / 5 / 10 / 30 candidate matrix proved independent completions can be mechanically integrated in one canonical batch commit while preserving fencing.
+
+# Claim + Session + Outbox observability
+
+Tool:
+
+```text
+tools/claim_observability.py
+```
+
+Workflow:
+
+```text
+.github/workflows/uos-claim-observability.yml
+```
+
+The snapshot covers:
+
+- Request/Grant totals and Broker authority;
+- CREATE / RECLAIM counts and max LeaseGeneration;
+- active Locks;
+- Claim CAS attempt / latency / contention telemetry;
+- Work Session metrics;
+- Completion Outbox queue depth;
+- canonical integration receipt count;
+- retained ingested vs invalid/fenced Outbox refs;
+- batch size p50/p95/max;
+- integration wait p50/p95/max.
+
+Outbox refs are intentionally retained as work-plane evidence, so `remote_refs_total` is not queue depth. `valid_queue_depth` is the current mechanically ingestible queue; canonical receipts are the authoritative integrated count.
+
+The 2026-09-03 closeout production snapshot reported all recorded Grants under `UOS_CLAIM_BROKER_V2`, no active Locks, Outbox queue depth 0 and no invalid/fenced Outbox refs.
+
+The observability workflow runs on relevant canonical main changes and on an hourly schedule so a queue consisting only of non-main Outbox refs can still be observed.
 
 # Partial Handoff
 
@@ -292,19 +278,7 @@ tools/partial_handoff.py
 tools/handoff_takeover.py
 ```
 
-Canonical recovery record:
-
-```text
-coordination/handoffs/<TASK>.handoff
-```
-
-Immutable partial checkpoints:
-
-```text
-coordination/handoff_artifacts/<TASK>/<HANDOFF_ID>/<SOURCE_PATH>
-```
-
-Core invariants:
+Invariants remain:
 
 ```text
 Handoff != Done
@@ -312,188 +286,114 @@ Handoff != ownership transfer
 Handoff != Acceptance PASS
 ```
 
-Every handoff mutation is conditioned on the exact current Claim blob, including a non-releasing `PARTIAL` checkpoint.
+`HANDOFF_READY` can persist recovery evidence and make the current Lease reclaimable without silently granting ownership to the successor. The successor still uses normal Broker reclaim and receives a new Generation/LeaseToken.
 
-`HANDOFF_READY` atomically records the handoff/checkpoints, expires the current Lease and stops any active bounded Work Session for that task. The Lock is not deleted.
+# Current standalone Kernel components
 
-After source-of-truth publication, the tool requests a normal Reconcile so Work Market reflects the reclaimable task. Reconcile failure is recorded as derived-state refresh pending and does not roll back a valid handoff.
-
-The successor still uses canonical stale reclaim:
+## Ownership / lifecycle
 
 ```text
-normal uos.py claim
-→ LeaseGeneration + 1
-→ new LeaseToken
+tools/uos.py
+tools/claim_broker_v2.py
+tools/canonical_runner.py
+tools/canonical_publish.py
+tools/claim_integrity_scan.py
 ```
 
-`handoff_takeover.py` is only a safe convenience wrapper around `uos.py claim → verified handoff read`; it does not create its own ownership protocol.
+Responsibilities include latest-main replay/recompute CAS, Request/Grant/Lock ownership, Lease/Fencing, exact stale reclaim, Complete and deterministic reconcile.
 
-A successor may read handoff context only after its current AgentID/LeaseToken are verified against the canonical Claim. The result is always marked `UNVERIFIED_PARTIAL_WORK`, and original Acceptance must be rerun before final completion.
+## Discovery / continuation
 
-# Current standalone kernel
+```text
+tools/agent_matching.py
+tools/task_requirements.py
+tools/work_session.py
+```
 
-## `tools/uos.py`
+Responsibilities include READY-market capability matching and bounded safe continuation/recovery.
 
-Commands:
+## Completion write-contention lane
 
-- `boot`
-- `status`
-- `reconcile`
-- `project init`
-- `task publish`
-- `claim`
-- `renew`
-- `complete`
+```text
+tools/completion_outbox.py
+```
 
-Semantics include:
+Responsibilities include non-canonical completion persistence, latest-main batch validation/integration and Outbox status metrics.
 
-- ExecutionEpoch acknowledgement;
-- dependency-driven READY/BLOCKED;
-- Work Market derivation;
+## Quality / durability / recovery
+
+```text
+tools/quality_gate.py
+tools/control_extensions.py
+tools/partial_handoff.py
+tools/handoff_takeover.py
+```
+
+## Observability
+
+```text
+tools/claim_telemetry.py
+tools/claim_observability.py
+```
+
+# Regression evidence
+
+Coverage now includes:
+
+- local and independent-clone lifecycle;
+- latest-main CAS replay/recompute;
+- ExecutionEpoch stale-Agent rejection;
 - Project WorkRoot authority;
-- Claim ownership;
-- LeaseGeneration / LeaseToken / Fencing;
-- stale reclaim;
-- completion output existence checks;
-- durability receipt;
-- deterministic runtime views.
+- Request/Grant/Lock integrity;
+- CREATE and stale RECLAIM;
+- old-token fencing;
+- high-contention 5 / 10 / 30 Agent Claim acceptance with telemetry anchors;
+- Work Session V2 exact-current recovery and immediate safe continuation;
+- Partial Handoff and successor takeover;
+- Completion Outbox fallback after pure ref race;
+- no Outbox on ownership/protocol errors;
+- prior-generation Outbox fencing after reclaim;
+- Completion batch Integration at 2 / 5 / 10 / 30 candidates;
+- `WAITING_INTEGRATION` and old-generation non-misclassification;
+- Claim / Session / Outbox observability.
 
-## Transport selection
+The Phase-6 closeout workflow validated the runtime patch in a fresh GitHub Actions checkout before publishing the tested code to canonical main. The production observability workflow then executed successfully against the resulting main state.
 
-```text
-auto | local | git-cas
-```
-
-`auto` behavior:
-
-- no configured Git remote → local;
-- configured canonical remote → latest-canonical Git-CAS;
-- configured remote becomes unreachable → fail closed, never local fallback ownership.
-
-## `tools/canonical_runner.py`
-
-Git-CAS lifecycle:
-
-1. fetch latest canonical branch;
-2. create isolated detached worktree;
-3. retain ExecutionEpoch acknowledgement separately from business argv;
-4. apply preview/review policy to clean `task / claim / complete` command shape;
-5. copy caller completion outputs/previews;
-6. invoke local state machine with the same Epoch acknowledgement;
-7. create one candidate tree;
-8. normal non-force push;
-9. on ref race discard candidate and rerun the whole command from latest canonical state.
-
-The Epoch global parameter therefore cannot accidentally bypass Preview/Review routing.
-
-## `tools/quality_gate.py`
-
-Provides preview expansion/validation, RuleEpoch sequence, first-three mandatory review, deterministic sampling, pending-review Claim pause, Accept/Reject correction and conversation presentation packets.
-
-## `tools/control_extensions.py`
-
-Provides ExecutionEpoch, Project WorkRoot output guard, Work Market builder and Artifact Durability Receipt.
-
-## `tools/agent_matching.py`
-
-Provides capability/tool/context/optional-role filtering over latest canonical READY work and delegates final ownership to `uos.py claim`.
-
-## `tools/task_requirements.py`
-
-Maintains optional project-local matching hint sidecars using canonical CAS.
-
-## `tools/work_session.py`
-
-Maintains bounded continuation state and only requests another canonical Claim after durability/review/deadline guards pass.
-
-## `tools/partial_handoff.py`
-
-Creates CAS-fenced recovery checkpoints and optionally releases the current Lease at a safe handoff point without creating Done or successor ownership.
-
-## `tools/handoff_takeover.py`
-
-Delegates successor ownership to normal `uos.py claim`, then verifies and returns handoff recovery context.
-
-## `tools/canonical_publish.py`
-
-Lower-level latest-canonical CAS primitive: create-if-absent, expected-blob replace/delete, no-clobber, non-force ref-race retry and Repository Identity target verification.
-
-Normal Agents should not construct task lifecycle state directly with this primitive.
-
-# Regression coverage
-
-Existing suites cover local lifecycle, low-level CAS, independent-clone `uos.py` lifecycle, Preview/Review Gate, RuleEpoch warmup, ExecutionEpoch, WorkRoot, Work Market and durability.
-
-P1 additions:
-
-```text
-tests/test_agent_matching.py
-tests/test_task_requirements.py
-tests/test_work_session_guard.py
-tests/test_work_session_git_cas.py
-tests/test_partial_handoff.py
-tests/test_partial_handoff_git_cas.py
-```
-
-These cover:
-
-- incompatible higher-priority task skipped;
-- missing tool is a hard mismatch;
-- context capacity ordering;
-- sidecar override;
-- stale Epoch rejected before matching-policy write;
-- PENDING review stops continuation;
-- REJECTED review forces same-task rework;
-- durability missing fails closed;
-- max-task stop;
-- deadline does not abandon current Claim;
-- bare-Git / independent-Clone Session + capability matching integration;
-- PARTIAL checkpoint does not release ownership;
-- HANDOFF_READY expires Lease without Done;
-- wrong handoff owner/token rejected;
-- cross-project partial artifact rejected;
-- successor must own current Claim before handoff read;
-- immutable checkpoint artifact retained outside final output path;
-- old Work Session stopped by handoff;
-- derived Work Market refresh requested after release;
-- successor takeover uses normal Claim and Generation+1;
-- old owner renew/complete fenced after release;
-- successor final completion leaves handoff checkpoints for audit.
-
-One-command entrypoint:
+One-command local regression entrypoint remains:
 
 ```bash
 python tools/selftest.py
 ```
 
-# Exit gate
+# Exit / status gate
 
 | Gate | Current result | Notes |
 |---|---|---|
-| Standalone control plane runnable | PARTIAL PASS | CLI/selftest exist; exact current committed fresh-clone execution still needs normal network runtime evidence. |
-| ExecutionEpoch stale-Agent safety | CODE / TEST PRESENT | Current Epoch `UOS_EXEC_20260902_01`. |
-| Project creation | CODE INTEGRATED | Canonical/local paths implemented. |
-| Task publication without ownership | CODE INTEGRATED | Output scope constrained to Project WorkRoot. |
-| Work discovery | CODE / TEST PRESENT | Reconcile derives READY-only Work Market. |
-| Capability-aware discovery | CODE / TEST PRESENT | Matching adapter delegates final ownership to canonical Claim. |
-| Bounded Work Session | CODE / TEST PRESENT | Durability/review/deadline/max-task guard implemented. |
-| Partial Handoff | CODE / TEST PRESENT | Claim-fenced checkpoints, safe Lease release and successor Generation+1 takeover are implemented. |
-| Ordinary project lifecycle | PASS | QUICKBOARD completed SPEC → UI/LOGIC → DOCS → REVIEW. |
-| Claim / Lease / Fencing / Recovery | LOW-LEVEL CAS PASS + LIFECYCLE INTEGRATED | exact-current full suite still needs execution evidence. |
-| Artifact durability | CODE / TEST PRESENT | Complete binds output digest receipt + `.done` in same candidate tree. |
-| Reconcile latest-canonical semantics | CODE INTEGRATED | full-command rerun after ref race. |
-| Visible-result / preview anti-drift | RULEEPOCH 1 ACTIVE / TEST PRESENT | next real reviewed completions must be directly shown and accepted according to the policy. |
-| Resource Admission / Backpressure | NOT YET / NEED-DRIVEN | Add only with a demonstrated scarce shared resource or concurrency requirement. |
+| Single-repository control plane | PASS FOR CURRENT KERNEL PATHS | Fresh GitHub Actions checkout exercised Phase-6 closeout paths. |
+| ExecutionEpoch stale-Agent safety | PASS / TESTED | Current Epoch gate remains active. |
+| Project creation / Task publication | INTEGRATED | WorkRoot constrained. |
+| READY discovery / capability matching | PASS / TESTED | Discovery delegates ownership to Broker. |
+| Broker V2 Request/Grant/Lock | PASS / TESTED | Immutable anchors + active pointer. |
+| Lease / Fencing / exact RECLAIM | PASS / TESTED | Old token/generation fails closed. |
+| Work Session V2 | PASS / TESTED | Recovery, continuation and `WAITING_INTEGRATION`. |
+| Partial Handoff | PASS / TESTED | Recovery fact without implicit completion/ownership transfer. |
+| Artifact durability | PASS / TESTED | Digest receipt + canonical Done semantics. |
+| Quality visibility | ACTIVE / TESTED | Real work still follows operator-review policy when triggered. |
+| High-contention Claim | PASS | 5 / 10 / 30 independent-Agent acceptance. |
+| Completion Outbox fallback | PASS | Pure ref-race fallback only. |
+| Mechanical batch Integration | PASS | 2 / 5 / 10 / 30 candidate acceptance. |
+| Outbox-aware observability | PASS | Production snapshot workflow successful. |
+| Generic scarce-resource admission | NEED-DRIVEN / NOT REQUIRED FOR PHASE 6 | Add only after a real scarce-resource requirement. |
+| Multi-repository routing | NOT ACTIVE | Requires explicit operator decision. |
 
-# Current blocker to phase closure
+# Remaining boundaries, not Phase-6 blockers
 
-Two acceptance items remain primary:
+The Phase-6 Claim/Concurrency closeout is complete. The following are deliberately outside this closure:
 
-1. run `python tools/selftest.py` against the **exact current committed version** from a normal fresh clone/runtime;
-2. exercise Quality RuleEpoch 1 through its real reviewed task completions in ordinary Agent work.
+1. **AI_book dispatch** — standalone UOS still does not manage AI_book tasks or runtime state.
+2. **Multi-repository orchestration** — requires a new explicit operator decision.
+3. **Generic Resource Admission / Backpressure** — remains need-driven; Completion Outbox solves a demonstrated Git write-plane contention problem but is not a universal resource broker.
+4. **Outbox ref archival / GC policy** — retained refs are currently audit/recovery evidence; long-term cleanup may be added when repository measurements justify it.
+5. **Adaptive GitHub write/API budget governance** — optional future optimization based on observed scale and throttling, not required for current correctness.
 
-Current chat execution environment has previously failed direct GitHub DNS access, so exact fresh-clone execution is not falsely marked PASS.
-
-`Resource Admission / Backpressure` is not an automatic next step. It should be activated only when a real standalone project demonstrates the need for scarce shared capacity or explicit project-level concurrency limits.
-
-Even after the single-repository gate closes, AI_book dispatch and multi-repository orchestration require a separate operator decision.
+No further AI_book Claim/Concurrency mechanism from the six-item 2026-09-03 delta list remains declared unsynchronized.
