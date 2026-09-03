@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/book/BOOK_V6_MASTER.md",
+      "sha256": "12b45271648935e10eb9df61c78ea1f62f97736e22f5ac810feca4f4cf595381"
+    },
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/web/BOOK_V6_DATA.json",
+      "sha256": "f183d6bc7e9c28d9f3173cf328059e16fef79aebeb6053a80c8c8e42bb39d478"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_BOOK_EDITOR_V6_01"
+}
