@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_FIELD_FACILITIES_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_FIELD_BOOK
 LeaseGeneration: 1
 LeaseToken: 944d7dea788c08dac85ba71169cdb916
-ClaimedAt: 2026-09-03T02:18:47Z
-LeaseExpiresAt: 2026-09-03T03:48:47Z
-FencingToken: 1:944d7dea788c08dac85ba71169cdb916
+CompletedAt: 2026-09-03T02:22:27Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_FIELD_FACILITIES_01.json
