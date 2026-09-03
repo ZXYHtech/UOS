@@ -1,0 +1,57 @@
+name: temp-book-editor-validate-complete
+on:
+  push:
+    branches:
+      - agent-claim-evidence-review-temp
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Validate V6 outputs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          master = Path('projects/TRAVEL_GUIDE/book/BOOK_V6_MASTER.md').read_text(encoding='utf-8')
+          data = json.loads(Path('projects/TRAVEL_GUIDE/web/BOOK_V6_DATA.json').read_text(encoding='utf-8'))
+          index = json.loads(Path('projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json').read_text(encoding='utf-8'))
+          assert data['schema'] == 'TRAVEL_GUIDE_BOOK_V6_DATA_V1'
+          assert data['privacy_scope'] == 'PUBLIC_ONLY'
+          assert len(data['schemes']) == 5
+          assert [s['id'] for s in data['schemes']] == ['A','B','C','D','E']
+          assert len(data['spot_cards']) == 12
+          assert len(data['food_cards']) == 3
+          assert len(data['field_tools']) == 4
+          assert len(data['evidence_cards']) == 4
+          index_ids = {r['id'] for r in index['records']}
+          refs = set()
+          for s in data['schemes']:
+              for key in ('mandatory_sources','optional_sources','food_sources','excluded_by_default','source_refs','base_sequence','preferred_sequence_if_upper_entry_verified','fallback_sequence_if_upper_entry_unverified'):
+                  refs.update(x for x in s.get(key, []) if isinstance(x, str) and (x.startswith('spot_') or x.startswith('food_') or x.startswith('field_') or x.startswith('evidence_')))
+              if isinstance(s.get('decision_source'), str): refs.add(s['decision_source'])
+          refs.update(x['source_id'] for x in data['spot_cards'])
+          refs.update(x['source_id'] for x in data['food_cards'])
+          refs.update(x['source_id'] for x in data['field_tools'])
+          refs.update(x['source_id'] for x in data['evidence_cards'])
+          missing = sorted(refs - index_ids)
+          assert not missing, missing
+          for heading in ['# 第一章','## 方案 A','## 方案 B','## 方案 C','## 方案 D','## 方案 E','# 第十章','# 第十一章','# 第十二章']:
+              assert heading in master, heading
+          assert 'RESEARCH_DIGEST.pdf' in master and '文件不存在' in master
+          forbidden = ['PRIVATE_CONTEXT.enc.json', 'PRETRIP_CHAT_GUIDE', 'SCHEME_A_FULL_GUIDE', 'SCHEME_B_FULL_GUIDE', 'SCHEME_C_FULL_GUIDE', 'SCHEME_D_FULL_GUIDE', 'SCHEME_E_FULL_GUIDE']
+          bad = [x for x in forbidden if x in master or x in json.dumps(data, ensure_ascii=False)]
+          assert not bad, bad
+          assert '普通 9 月周六比工作日多多少百分比' in master
+          assert data['shared_core']['transport']['upper_entry_status'] == 'conditional_reverify'
+          assert data['shared_core']['urban_finish']['night_effect_guaranteed'] is False
+          print(json.dumps({'status':'VALID','schemes':5,'resolved_source_refs':len(refs),'index_records':len(index_ids)}, ensure_ascii=False))
+          PY
+      - name: Canonical complete V6 editor
+        run: |
+          python tools/uos.py --ack-execution-epoch UOS_EXEC_20260902_01 complete --agent-id AG_TRAVEL_EVIDENCE_REVIEW --task TASK_TRAVEL_BOOK_EDITOR_V6_01 --lease-token 6c555dcf17b4891d97d0a2d28d34f2d4 --result PASS
