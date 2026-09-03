@@ -1,0 +1,9 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_TRAVEL_SPOT_NANQIAO_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+LeaseGeneration: 1
+LeaseToken: 3d79fea3334dfa56f88528f88fda448c
+CompletedAt: 2026-09-03T04:32:04Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_NANQIAO_01.json
