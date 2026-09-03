@@ -25,10 +25,27 @@ jobs:
       - name: Compile kernel
         run: python -m py_compile tools/uos.py tools/canonical_runner.py tools/claim_integrity_scan.py tools/high_contention_claim.py
       - name: Run Grant and lifecycle tests
+        id: tests
+        continue-on-error: true
+        shell: bash
         run: |
-          python -m unittest tests.test_claim_grant_integrity -v
-          python -m unittest tests.test_git_cas_lifecycle -v
-          python -m unittest tests.test_project_warmup_override -v
+          set -o pipefail
+          {
+            python -m unittest tests.test_claim_grant_integrity -v
+            python -m unittest tests.test_git_cas_lifecycle -v
+            python -m unittest tests.test_project_warmup_override -v
+          } 2>&1 | tee phase2-test.log
+      - name: Upload Phase-2 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-test-log
+          path: phase2-test.log
+      - name: Fail if tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          cat phase2-test.log
+          exit 1
       - name: Diff check
         run: git diff --check
       - name: Commit tested backport
