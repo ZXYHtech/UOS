@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_TRANSIT_MAP
 LeaseGeneration: 1
 LeaseToken: 5db0d5d1bfcc48b7aa19a5aecd1befde
-ClaimedAt: 2026-09-03T02:17:23Z
-LeaseExpiresAt: 2026-09-03T03:47:23Z
-FencingToken: 1:5db0d5d1bfcc48b7aa19a5aecd1befde
+CompletedAt: 2026-09-03T02:27:00Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01.json
