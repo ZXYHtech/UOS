@@ -286,7 +286,10 @@ class PartialHandoffGitCasTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(old_complete.returncode, 2)
-            self.assertIn("FENCED", old_complete.stderr)
+            blocked_packet = json.loads(old_complete.stdout)
+            self.assertEqual(blocked_packet["status"], "GRANT_INTEGRITY_BLOCKED")
+            self.assertIn("RequestedAgentID", blocked_packet["mismatch_fields"])
+            self.assertIn("RequestedLeaseToken", blocked_packet["mismatch_fields"])
 
             final = successor / "projects/DEMO/final.txt"
             final.parent.mkdir(parents=True, exist_ok=True)

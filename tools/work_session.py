@@ -516,6 +516,24 @@ def next_step(
     current = str(session.get("current_task") or "")
 
     if current:
+        # A rejected visible result deliberately revokes Done so the same task can
+        # be corrected. Treat that review fact before interpreting a missing Lock
+        # as ownership loss, but never override a conflicting live/reassigned Claim.
+        review = _canonical_json(root, commit, f"coordination/quality/events/{current}.json")
+        if (
+            review
+            and str(review.get("review_status", "")).upper() == "REJECTED"
+            and (not live_claims or current in live_claims)
+        ):
+            review_lock = _canonical_claim_meta(root, commit, current)
+            if not review_lock or review_lock.get("AgentID") == agent_id:
+                return {
+                    "status": "REWORK_REQUIRED",
+                    "task": current,
+                    "review": review,
+                    "session": session,
+                    "instruction": "Correct and re-complete the same rejected task; do not claim unrelated work.",
+                }
         if live_claims and current not in live_claims:
             return {
                 "status": "RECOVERY_REQUIRED",
