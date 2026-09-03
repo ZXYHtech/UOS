@@ -1,0 +1,22 @@
+Schema: UOS_CLAIM_V1
+CanonicalID: TASK_TRAVEL_BOOK_EDITOR_V6_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+LeaseGeneration: 1
+LeaseToken: 6c555dcf17b4891d97d0a2d28d34f2d4
+ClaimedAt: 2026-09-03T04:44:27Z
+LeaseExpiresAt: 2026-09-03T06:14:27Z
+FencingToken: 1:6c555dcf17b4891d97d0a2d28d34f2d4
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+RequestPath: coordination/claim_requests/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4.request
+GrantID: GRANT-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4.grant
+ClaimMode: CREATE
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
+FencingRequired: YES
+ExecutionEpoch: UOS_EXEC_20260902_01

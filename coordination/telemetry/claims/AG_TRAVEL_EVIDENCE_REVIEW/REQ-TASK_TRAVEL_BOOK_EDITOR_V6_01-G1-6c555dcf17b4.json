@@ -1,0 +1,16 @@
+{
+  "agent_id": "AG_TRAVEL_EVIDENCE_REVIEW",
+  "base_commit": "1213b00d9bd38b1b7145c190f4e8d3116e017ba5",
+  "canonical_id": "TASK_TRAVEL_BOOK_EDITOR_V6_01",
+  "cas_attempt": 1,
+  "claim_authority": "UOS_CLAIM_BROKER_V2",
+  "claim_mode": "CREATE",
+  "grant_id": "GRANT-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4",
+  "lease_generation": 1,
+  "observed_at": "2026-09-03T04:44:27.227Z",
+  "project_id": "TRAVEL_GUIDE_DEPTH",
+  "ref_races_before_candidate": 0,
+  "request_id": "REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4",
+  "runner_elapsed_ms_pre_push": 367,
+  "schema": "UOS_CLAIM_TELEMETRY_V1"
+}

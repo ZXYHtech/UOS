@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4
+GrantID: GRANT-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4
+CanonicalID: TASK_TRAVEL_BOOK_EDITOR_V6_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+GrantedAt: 2026-09-03T04:44:27Z
+ClaimPath: coordination/claims/TASK_TRAVEL_BOOK_EDITOR_V6_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_BOOK_EDITOR_V6_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_EDITOR_V6_01-G1-6c555dcf17b4.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: 6c555dcf17b4891d97d0a2d28d34f2d4
+LeaseExpiresAt: 2026-09-03T06:14:27Z
+FencingToken: 1:6c555dcf17b4891d97d0a2d28d34f2d4
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/research/book/;projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json;projects/TRAVEL_GUIDE/RESEARCH_DIGEST.pdf
+Output: projects/TRAVEL_GUIDE/book/BOOK_V6_MASTER.md;projects/TRAVEL_GUIDE/web/BOOK_V6_DATA.json
+Acceptance: Integrate 50-task family research into coherent chapter structure; preserve evidence boundaries; update spot cards and dynamic caveats; avoid duplication; produce mobile-web data
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_EVIDENCE_REVIEW;Generation=1;Token=6c555dcf17b4891d97d0a2d28d34f2d4
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
