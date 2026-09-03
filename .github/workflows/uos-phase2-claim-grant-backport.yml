@@ -1,0 +1,49 @@
+name: UOS phase2 claim grant backport
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/phase2_claim_grant_patch.py'
+      - '.github/workflows/uos-phase2-claim-grant-backport.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  backport-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply Phase-2 Grant patch
+        run: python tools/phase2_claim_grant_patch.py
+      - name: Compile kernel
+        run: python -m py_compile tools/uos.py tools/canonical_runner.py tools/claim_integrity_scan.py tools/high_contention_claim.py
+      - name: Run Grant and lifecycle tests
+        run: |
+          python -m unittest tests.test_claim_grant_integrity -v
+          python -m unittest tests.test_git_cas_lifecycle -v
+          python -m unittest tests.test_project_warmup_override -v
+      - name: Diff check
+        run: git diff --check
+      - name: Commit tested backport
+        run: |
+          if git diff --quiet -- tools/canonical_runner.py; then
+            echo 'No patch needed.'
+            exit 0
+          fi
+          git config user.name 'UOS Kernel Bot'
+          git config user.email 'uos-kernel@example.invalid'
+          git add tools/canonical_runner.py
+          git commit -m 'feat: add immutable Grant dual-anchor to canonical claims'
+          for n in 1 2 3 4 5 6 7 8; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((n * 2))
+          done
+          echo 'Failed to publish tested Phase-2 backport after retries' >&2
+          exit 1
