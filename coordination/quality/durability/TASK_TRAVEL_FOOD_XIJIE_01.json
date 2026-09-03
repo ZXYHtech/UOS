@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/food/QUIET_OLD_CITY_MEAL.md",
+      "sha256": "1f97f6f99e2a38ed40c790546ae679c68addab6a330644f41a2a318d93742379"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_FOOD_XIJIE_01"
+}

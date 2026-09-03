@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_FOOD_XIJIE_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_FOOD_DATA
 LeaseGeneration: 1
 LeaseToken: 4cc0622b6a353383e934e4f07a6602be
-ClaimedAt: 2026-09-03T03:07:12Z
-LeaseExpiresAt: 2026-09-03T04:37:12Z
-FencingToken: 1:4cc0622b6a353383e934e4f07a6602be
+CompletedAt: 2026-09-03T03:11:05Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_FOOD_XIJIE_01.json
