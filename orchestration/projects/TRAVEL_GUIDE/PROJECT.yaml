@@ -2,7 +2,7 @@ Schema: UOS_PROJECT_V1
 ProjectID: TRAVEL_GUIDE
 Title: Travel Guide — guided itinerary planning pilot
 State: ACTIVE
-IntentVersion: TRAVEL_GUIDE_INTENT_V4
+IntentVersion: TRAVEL_GUIDE_INTENT_V5
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/TRAVEL_GUIDE
 Goal: Build five evidence-based one-day Dujiangyan travel plans with route maps, guide PDFs, a research digest, and a respectful communication/gifting companion while validating privacy-aware UOS orchestration.
@@ -13,6 +13,17 @@ KeyStorage: OUT_OF_REPOSITORY
 KeyFingerprintSHA256: 3b3dfa32cf1bd4f7d7d7adac40e22a46038ae638ea8189e2ae906429ec6e266a
 MaxTaskCount: 50
 CurrentPlannedTaskCount: 24
+CanonicalTaskCountCurrent: 24
+CanonicalDoneCountCurrent: 0
+CanonicalRemainingCountCurrent: 24
+UnusedCanonicalTaskSlots: 26
+BookResearchWorkUnitsCurrent: 50
+BookResearchWorkUnitsAreCanonicalTasks: false
+StateDriftDetected: true
+StateDriftReason: content-artifacts-were-produced-outside-canonical-claim-complete-lifecycle
+RecoveryDiagnosis: projects/TRAVEL_GUIDE/AGENT_CLAIM_DIAGNOSIS_20260903.md
+ExpansionPlan: projects/TRAVEL_GUIDE/CANONICAL_EXPANSION_PLAN_26.md
+AgentClaimGuide: projects/TRAVEL_GUIDE/AGENT_CLAIM_GUIDE.md
 MapWorkflow: AI_PROMPT_IMAGE_RECEIPT_VERIFY_V1
 MapPolicy: projects/TRAVEL_GUIDE/MAP_VALIDATION_POLICY.md
 OperatorReviewPolicy: ONE_CONFIRMATION_THEN_CONTINUE
@@ -20,6 +31,7 @@ OperatorWarmupRequired: 1
 OperatorWarmupStatus: SATISFIED
 OperatorWarmupEvidence: user-approved-first-requirements-and-continuation
 PostWarmupMode: PARALLEL_ALLOWED_WITH_SAMPLING_AND_HIGH_RISK_REVIEW
+CanonicalWarmupOverrideWired: false
 NonGoals:
   - No AI_book dependency; only reuse the generic prompt-image-receipt pattern inside this UOS project
   - No cross-repository writes
@@ -33,6 +45,7 @@ AcceptanceSummary:
   - Research digest PDF covering geography, history/culture, reviews, food, routes, news, visitor profile, trip purpose, seasonal flow, transport and budget
   - Encrypted pre-trip communication guide
   - Current transport/weather/opening/crowd refresh close to departure
-  - Total task catalog stays at or below 50
-  - Only one routine operator confirmation is required for this small project; later checks are sampling/high-risk/final-audit driven
+  - Total canonical task catalog stays at or below 50
+  - Book/research work-unit count must never be reported as canonical task count
+  - Only one routine operator confirmation is required for this small project; later checks are sampling/high-risk/final-audit driven once execution override is wired
 OperatorPhaseRef: docs/CURRENT_PHASE.md
