@@ -1,0 +1,9 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_TRAVEL_SPOT_ERWANG_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+LeaseGeneration: 1
+LeaseToken: ba639b2a06f7d0fed5e3dfad875367e3
+CompletedAt: 2026-09-03T03:50:10Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_ERWANG_01.json
