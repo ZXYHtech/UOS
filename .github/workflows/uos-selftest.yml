@@ -1,0 +1,29 @@
+name: UOS standalone selftest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/**'
+      - 'tests/**'
+      - '.uos/**'
+      - 'orchestration/**/PROJECT.yaml'
+      - 'orchestration/**/TASK_CATALOG.csv'
+      - '.github/workflows/uos-selftest.yml'
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run full standalone regression suite
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python tools/selftest.py
