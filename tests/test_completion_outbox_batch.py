@@ -71,9 +71,13 @@ def uos(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 def load_outbox_module():
     path = SOURCE / "tools/completion_outbox.py"
-    spec = importlib.util.spec_from_file_location("completion_outbox_batch_test", path)
+    name = "completion_outbox_batch_test"
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
+    # Python 3.12 dataclasses resolves annotations through sys.modules while
+    # decorating the class, so register the module before exec_module().
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -195,9 +199,9 @@ class CompletionOutboxBatchTests(unittest.TestCase):
                     (check / f"projects/LOAD/{index:02d}.txt").read_text(encoding="utf-8"),
                     f"result-{index:02d}\n",
                 )
-                grant_id = parse_kv(check / f"coordination/claim_grants/AGENT_{index:02d}" / next(
-                    p.name for p in (check / f"coordination/claim_grants/AGENT_{index:02d}").glob("*.grant")
-                ))["GrantID"]
+                grant_dir = check / f"coordination/claim_grants/AGENT_{index:02d}"
+                grant_file = next(grant_dir.glob("*.grant"))
+                grant_id = parse_kv(grant_file)["GrantID"]
                 receipt = check / f"coordination/outbox_receipts/PUB-{grant_id}.json"
                 self.assertTrue(receipt.exists())
             status = json.loads((check / "coordination/runtime/STATUS.json").read_text(encoding="utf-8"))
