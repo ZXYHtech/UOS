@@ -16,9 +16,9 @@
     },
     "TRAVEL_GUIDE_DEPTH": {
       "blocked": 3,
-      "claimed": 2,
+      "claimed": 3,
       "done": 2,
-      "ready": 19,
+      "ready": 18,
       "total": 26
     },
     "UOS_CORE": {

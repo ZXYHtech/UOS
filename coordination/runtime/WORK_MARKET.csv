@@ -8,7 +8,6 @@ TASK_TRAVEL_FOOD_XIAOZHUO_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier f
 TASK_TRAVEL_FOOD_XIJIE_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier for quiet old-city option,food_quiet,M,3,M,web,projects/TRAVEL_GUIDE/research/book/food/QUIET_OLD_CITY_MEAL.md
 TASK_TRAVEL_FOOD_ZHAOMAI_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep snack dossier for Zhao Maimian,food_snack,M,3,M,web,projects/TRAVEL_GUIDE/research/book/food/REPRESENTATIVE_SNACK.md
 TASK_TRAVEL_POI_SOURCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit POI names access and map sources,evidence_poi,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/POI_SOURCE_AUDIT.md
-TASK_TRAVEL_PROFILE_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit visitor profile evidence,evidence_profile,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/VISITOR_PROFILE_AUDIT.md
 TASK_TRAVEL_SEASON_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit seasonality and visitor-flow evidence,evidence_season,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/SEASONALITY_AUDIT.md
 TASK_TRAVEL_SPOT_ANLAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Anlan Bridge,spot_anlan,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/ANLAN.md
 TASK_TRAVEL_SPOT_BAOPINGKOU_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Baopingkou,spot_baopingkou,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/BAOPINGKOU.md
