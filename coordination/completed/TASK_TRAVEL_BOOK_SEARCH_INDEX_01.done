@@ -1,0 +1,9 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_TRAVEL_BOOK_SEARCH_INDEX_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+LeaseGeneration: 1
+LeaseToken: 49e98ed47b0147084b668e19e286e43a
+CompletedAt: 2026-09-03T04:41:41Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_BOOK_SEARCH_INDEX_01.json

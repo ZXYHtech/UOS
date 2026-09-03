@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json",
+      "sha256": "9f55123c79297e5b1faa1ac100287949514a70ab564dd9d2bee5495b5e4db47f"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_BOOK_SEARCH_INDEX_01"
+}
