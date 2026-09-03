@@ -308,7 +308,7 @@ def main() -> int:
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader(); writer.writerows(rows)
     print(f"claim integrity: rows={len(rows)} violations_seen={violations} repaired={repaired} output={out.relative_to(root)}")
-    return 2 if args.fail_on-violation and violations > repaired else 0
+    return 2 if args.fail_on_violation and violations > repaired else 0
 
 
 if __name__ == "__main__":
