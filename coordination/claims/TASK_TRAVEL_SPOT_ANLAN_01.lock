@@ -1,0 +1,22 @@
+Schema: UOS_CLAIM_V1
+CanonicalID: TASK_TRAVEL_SPOT_ANLAN_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+LeaseGeneration: 1
+LeaseToken: acb2d24359ec33e916a63d7be3fbef23
+ClaimedAt: 2026-09-03T03:41:26Z
+LeaseExpiresAt: 2026-09-03T05:11:26Z
+FencingToken: 1:acb2d24359ec33e916a63d7be3fbef23
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ANLAN_01-G1-acb2d24359ec.request
+GrantID: GRANT-TASK_TRAVEL_SPOT_ANLAN_01-G1-acb2d24359ec
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ANLAN_01-G1-acb2d24359ec.grant
+ClaimMode: CREATE
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
+FencingRequired: YES
+ExecutionEpoch: UOS_EXEC_20260902_01
