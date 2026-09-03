@@ -63,7 +63,6 @@ jobs:
             echo 'No closeout kernel patch needed.'
             exit 0
           fi
-          rm -f phase6-closeout.log
           git config user.name 'UOS Kernel Bot'
           git config user.email 'uos-kernel@example.invalid'
           git add \
@@ -72,6 +71,11 @@ jobs:
             tools/claim_observability.py \
             .github/workflows/uos-claim-observability.yml
           git commit -m 'feat: close phase6 session and outbox observability gaps'
+          # Tests/py_compile may alter tracked __pycache__ files and create logs.
+          # The kernel candidate is already committed above, so scrub all test
+          # byproducts before rebasing/pushing that exact tested commit.
+          git reset --hard HEAD
+          git clean -fd
           for n in 1 2 3 4 5 6 7 8; do
             git pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep $((n * 2))
