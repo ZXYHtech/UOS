@@ -2,28 +2,32 @@ Schema: UOS_PROJECT_V1
 ProjectID: TRAVEL_GUIDE
 Title: Travel Guide — guided itinerary planning pilot
 State: ACTIVE
-IntentVersion: TRAVEL_GUIDE_INTENT_V5
+IntentVersion: TRAVEL_GUIDE_INTENT_V6
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/TRAVEL_GUIDE
-Goal: Build five evidence-based one-day Dujiangyan travel plans with route maps, guide PDFs, a research digest, and a respectful communication/gifting companion while validating privacy-aware UOS orchestration.
+Goal: Build five evidence-based one-day Dujiangyan travel plans with route maps guide PDFs a research digest and a respectful communication/gifting companion while validating privacy-aware UOS orchestration.
 PrivacyMode: SPLIT_PUBLIC_PRIVATE
 PrivateContext: projects/TRAVEL_GUIDE/PRIVATE_CONTEXT.enc.json
 Encryption: AES-256-GCM
 KeyStorage: OUT_OF_REPOSITORY
 KeyFingerprintSHA256: 3b3dfa32cf1bd4f7d7d7adac40e22a46038ae638ea8189e2ae906429ec6e266a
 MaxTaskCount: 50
-CurrentPlannedTaskCount: 24
-CanonicalTaskCountCurrent: 24
+CurrentPlannedTaskCount: 50
+LocalLegacyCanonicalTaskCount: 24
+ParallelDepthProject: TRAVEL_GUIDE_DEPTH
+ParallelDepthCanonicalTaskCount: 26
+FamilyCanonicalTaskCountCurrent: 50
 CanonicalDoneCountCurrent: 0
-CanonicalRemainingCountCurrent: 24
-UnusedCanonicalTaskSlots: 26
+CanonicalRemainingCountCurrent: 50
+UnusedCanonicalTaskSlots: 0
 BookResearchWorkUnitsCurrent: 50
 BookResearchWorkUnitsAreCanonicalTasks: false
 StateDriftDetected: true
-StateDriftReason: content-artifacts-were-produced-outside-canonical-claim-complete-lifecycle
+StateDriftReason: legacy-content-artifacts-were-produced-outside-canonical-claim-complete-lifecycle
 RecoveryDiagnosis: projects/TRAVEL_GUIDE/AGENT_CLAIM_DIAGNOSIS_20260903.md
 ExpansionPlan: projects/TRAVEL_GUIDE/CANONICAL_EXPANSION_PLAN_26.md
 AgentClaimGuide: projects/TRAVEL_GUIDE/AGENT_CLAIM_GUIDE.md
+ParallelClaimHelper: projects/TRAVEL_GUIDE/tools/claim_depth.py
 MapWorkflow: AI_PROMPT_IMAGE_RECEIPT_VERIFY_V1
 MapPolicy: projects/TRAVEL_GUIDE/MAP_VALIDATION_POLICY.md
 OperatorReviewPolicy: ONE_CONFIRMATION_THEN_CONTINUE
@@ -31,21 +35,22 @@ OperatorWarmupRequired: 1
 OperatorWarmupStatus: SATISFIED
 OperatorWarmupEvidence: user-approved-first-requirements-and-continuation
 PostWarmupMode: PARALLEL_ALLOWED_WITH_SAMPLING_AND_HIGH_RISK_REVIEW
-CanonicalWarmupOverrideWired: false
+CanonicalWarmupOverrideWired: true
+ParallelPublicReadyTaskTarget: 23
 NonGoals:
   - No AI_book dependency; only reuse the generic prompt-image-receipt pattern inside this UOS project
   - No cross-repository writes
   - No booking or payment without explicit operator action
-  - No plaintext storage of exact origin/date, relationship context/goal, private chat scripts, or private gift staging
-  - No fabricated visitor demographics, purpose ratios, or seasonality percentages
+  - No plaintext storage of exact origin/date relationship context/goal private chat scripts or private gift staging
+  - No fabricated visitor demographics purpose ratios or seasonality percentages
 AcceptanceSummary:
   - Five genuinely distinct one-day schemes
-  - One verified phone-readable route map per scheme using prompt -> image -> receipt -> geographic verification; PNG required, prompt and receipt required, SVG optional
+  - One verified phone-readable route map per scheme using prompt -> image -> receipt -> geographic verification; PNG required prompt and receipt required SVG optional
   - Full scheme guides containing private timing/conversation/gift content stored encrypted
-  - Research digest PDF covering geography, history/culture, reviews, food, routes, news, visitor profile, trip purpose, seasonal flow, transport and budget
+  - Research digest PDF covering geography history/culture reviews food routes news visitor profile trip purpose seasonal flow transport and budget
   - Encrypted pre-trip communication guide
   - Current transport/weather/opening/crowd refresh close to departure
-  - Total canonical task catalog stays at or below 50
+  - Total logical canonical task family stays at exactly 50
   - Book/research work-unit count must never be reported as canonical task count
-  - Only one routine operator confirmation is required for this small project; later checks are sampling/high-risk/final-audit driven once execution override is wired
+  - Only one routine operator confirmation is required for this project family; later checks are sampling/high-risk/final-audit driven
 OperatorPhaseRef: docs/CURRENT_PHASE.md
