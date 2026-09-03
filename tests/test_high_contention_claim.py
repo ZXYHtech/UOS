@@ -53,6 +53,15 @@ def configure(cwd: Path) -> None:
     git(cwd, "config", "user.email", "uos@example.invalid")
 
 
+def parse_kv(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        if ":" in raw_line:
+            key, value = raw_line.split(":", 1)
+            out[key.strip()] = value.strip()
+    return out
+
+
 def setup_remote(td: Path, count: int) -> Path:
     seed = td / "seed"
     remote = td / "remote.git"
@@ -167,18 +176,30 @@ class HighContentionClaimTests(unittest.TestCase):
             check = td / "check"
             clone(remote, check)
             locks = sorted((check / "coordination/claims").glob("TASK_*.lock"))
+            grants = sorted((check / "coordination/claim_grants").glob("*/*.grant"))
             self.assertEqual(len(locks), scale)
+            self.assertEqual(len(grants), scale)
             owners = set()
+            grant_paths = set()
             for path in locks:
-                meta = {}
-                for raw_line in path.read_text(encoding="utf-8").splitlines():
-                    if ":" in raw_line:
-                        key, value = raw_line.split(":", 1)
-                        meta[key.strip()] = value.strip()
+                meta = parse_kv(path)
                 owners.add(meta.get("AgentID"))
                 self.assertTrue(meta.get("LeaseToken"))
                 self.assertTrue(meta.get("LeaseGeneration"))
+                self.assertTrue(meta.get("GrantID"))
+                self.assertTrue(meta.get("GrantPath"))
+                self.assertEqual(meta.get("ClaimAuthority"), "UOS_CANONICAL_RUNNER_GRANT_V1")
+                grant_path = check / meta["GrantPath"]
+                self.assertTrue(grant_path.exists(), meta)
+                grant_paths.add(grant_path.resolve())
+                grant = parse_kv(grant_path)
+                self.assertEqual(grant.get("CanonicalID"), meta.get("CanonicalID"))
+                self.assertEqual(grant.get("AgentID"), meta.get("AgentID"))
+                self.assertEqual(grant.get("LeaseGeneration"), meta.get("LeaseGeneration"))
+                self.assertEqual(grant.get("LeaseToken"), meta.get("LeaseToken"))
+                self.assertEqual(grant.get("GrantID"), meta.get("GrantID"))
             self.assertEqual(len(owners), scale)
+            self.assertEqual(len(grant_paths), scale)
 
 
 if __name__ == "__main__":
