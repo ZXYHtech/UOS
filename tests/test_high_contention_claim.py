@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import shutil
 import subprocess
@@ -177,13 +178,16 @@ class HighContentionClaimTests(unittest.TestCase):
             locks = sorted((check / "coordination/claims").glob("TASK_*.lock"))
             grants = sorted((check / "coordination/claim_grants").glob("*/*.grant"))
             requests = sorted((check / "coordination/claim_requests").glob("*/*.request"))
+            telemetry = sorted((check / "coordination/telemetry/claims").glob("*/*.json"))
             self.assertEqual(len(locks), scale)
             self.assertEqual(len(grants), scale)
             self.assertEqual(len(requests), scale)
+            self.assertEqual(len(telemetry), scale)
 
             owners = set()
             grant_paths = set()
             request_paths = set()
+            telemetry_paths = set()
             for path in locks:
                 meta = parse_kv(path)
                 owners.add(meta.get("AgentID"))
@@ -222,9 +226,25 @@ class HighContentionClaimTests(unittest.TestCase):
                 self.assertEqual(request.get("GrantPath"), meta.get("GrantPath"))
                 self.assertEqual(request.get("ClaimPath"), f"coordination/claims/{meta.get('CanonicalID')}.lock")
 
+                request_id = grant.get("RequestID")
+                telemetry_path = check / "coordination/telemetry/claims" / str(meta.get("AgentID")) / f"{request_id}.json"
+                self.assertTrue(telemetry_path.exists(), (meta, grant))
+                telemetry_paths.add(telemetry_path.resolve())
+                event = json.loads(telemetry_path.read_text(encoding="utf-8"))
+                self.assertEqual(event.get("schema"), "UOS_CLAIM_TELEMETRY_V1")
+                self.assertEqual(event.get("canonical_id"), meta.get("CanonicalID"))
+                self.assertEqual(event.get("agent_id"), meta.get("AgentID"))
+                self.assertEqual(event.get("request_id"), request_id)
+                self.assertEqual(event.get("grant_id"), meta.get("GrantID"))
+                self.assertEqual(event.get("claim_authority"), "UOS_CLAIM_BROKER_V2")
+                self.assertEqual(event.get("claim_mode"), "CREATE")
+                self.assertGreaterEqual(int(event.get("cas_attempt") or 0), 1)
+                self.assertGreaterEqual(int(event.get("runner_elapsed_ms_pre_push") or 0), 0)
+
             self.assertEqual(len(owners), scale)
             self.assertEqual(len(grant_paths), scale)
             self.assertEqual(len(request_paths), scale)
+            self.assertEqual(len(telemetry_paths), scale)
 
 
 if __name__ == "__main__":
