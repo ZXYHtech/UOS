@@ -1,0 +1,9 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_TRAVEL_SPOT_QINYAN_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+LeaseGeneration: 1
+LeaseToken: cb01cabb3e47138986ec09b6ed358b4b
+CompletedAt: 2026-09-03T03:55:00Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_QINYAN_01.json
