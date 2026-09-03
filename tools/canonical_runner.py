@@ -51,6 +51,12 @@ except ModuleNotFoundError:
     )
 
 
+try:
+    from claim_telemetry import decorate_claim_result, record_claim_candidate
+except ModuleNotFoundError:
+    from tools.claim_telemetry import decorate_claim_result, record_claim_candidate
+
+
 class CanonicalRunError(RuntimeError):
     pass
 
@@ -687,6 +693,7 @@ def run_canonical(
     target_ref = f"refs/heads/{branch}"
     remote_ref = f"refs/remotes/{remote}/{branch}"
     last_proc: subprocess.CompletedProcess[str] | None = None
+    runner_started = time.perf_counter()
 
     for attempt in range(1, retries + 1):
         fetch = git(["fetch", "--quiet", remote, branch], cwd=caller_root, check=False)
@@ -751,6 +758,19 @@ def run_canonical(
             if proc.returncode != 0:
                 return proc
 
+            telemetry_path: str | None = None
+            if local_argv and local_argv[0] == "claim":
+                try:
+                    telemetry_path = record_claim_candidate(
+                        worktree,
+                        stdout=proc.stdout,
+                        cas_attempt=attempt,
+                        runner_elapsed_ms_pre_push=round((time.perf_counter() - runner_started) * 1000),
+                        base_commit=base,
+                    )
+                except Exception as exc:
+                    raise CanonicalRunError(f"CLAIM_TELEMETRY_ERROR: {exc}") from exc
+
             candidate = _candidate_from_worktree(worktree, base, _canonical_message(local_argv))
             if candidate is None:
                 return proc
@@ -766,6 +786,17 @@ def run_canonical(
             )
             if push.returncode == 0:
                 git(["fetch", "--quiet", remote, branch], cwd=caller_root, check=False)
+                if local_argv and local_argv[0] == "claim":
+                    runtime_stdout = decorate_claim_result(
+                        proc.stdout,
+                        cas_attempt=attempt,
+                        runner_elapsed_ms_total=round((time.perf_counter() - runner_started) * 1000),
+                        canonical_commit=candidate,
+                        telemetry_path=telemetry_path,
+                    )
+                    proc = subprocess.CompletedProcess(
+                        args=proc.args, returncode=proc.returncode, stdout=runtime_stdout, stderr=proc.stderr
+                    )
                 return proc
             if not is_ref_race(push):
                 raise CanonicalRunError(

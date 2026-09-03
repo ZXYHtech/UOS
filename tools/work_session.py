@@ -14,6 +14,7 @@ import os
 import secrets
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -199,6 +200,96 @@ def _write_session_local(root: Path, agent_id: str, session_id: str, data: dict[
     return rel
 
 
+
+def _session_transition(
+    data: dict[str, object],
+    event: str,
+    *,
+    task: str = "",
+    increments: dict[str, int] | None = None,
+    detail: dict[str, object] | None = None,
+) -> dict[str, object]:
+    metrics = data.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+    metrics = dict(metrics)
+    for key, amount in (increments or {}).items():
+        metrics[key] = int(metrics.get(key) or 0) + int(amount)
+    data["metrics"] = metrics
+    sequence = int(data.get("event_sequence") or 0) + 1
+    entry: dict[str, object] = {
+        "sequence": sequence,
+        "at": iso(),
+        "event": event,
+        "task": task,
+    }
+    if detail:
+        entry["detail"] = detail
+    events = list(data.get("events", [])) if isinstance(data.get("events"), list) else []
+    events.append(entry)
+    data["events"] = events[-100:]
+    data["event_sequence"] = sequence
+    data["last_transition_at"] = entry["at"]
+    return data
+
+
+def _canonical_claim_meta(root: Path, commit: str | None, task: str) -> dict[str, str]:
+    rel = f"coordination/claims/{task}.lock"
+    if commit:
+        return _parse_scalar(_show(root, commit, rel))
+    path = root / rel
+    return _parse_scalar(path.read_text(encoding="utf-8") if path.exists() else None)
+
+
+def _lock_stale(lock: dict[str, str]) -> bool:
+    try:
+        return parse_time(lock.get("LeaseExpiresAt", "1970-01-01T00:00:00Z")) <= utcnow()
+    except Exception:
+        return True
+
+
+def _record_claim_metrics(
+    data: dict[str, object],
+    grant: dict[str, object],
+    *,
+    event: str,
+    task: str,
+    ownership_recovery: bool = False,
+) -> dict[str, object]:
+    claimed = list(data.get("claimed_tasks", [])) if isinstance(data.get("claimed_tasks"), list) else []
+    if task and task not in claimed:
+        claimed.append(task)
+    data["claimed_tasks"] = claimed
+    data["current_task"] = task
+
+    runtime = grant.get("canonical_runtime")
+    runtime = runtime if isinstance(runtime, dict) else {}
+    elapsed = int(runtime.get("runner_elapsed_ms") or 0)
+    ref_races = int(runtime.get("ref_races") or 0)
+    metrics = data.get("metrics")
+    if not isinstance(metrics, dict):
+        metrics = {}
+    metrics = dict(metrics)
+    metrics["claims_succeeded"] = int(metrics.get("claims_succeeded") or 0) + 1
+    metrics["canonical_ref_races"] = int(metrics.get("canonical_ref_races") or 0) + ref_races
+    metrics["claim_elapsed_ms_total"] = int(metrics.get("claim_elapsed_ms_total") or 0) + elapsed
+    metrics["claim_elapsed_ms_max"] = max(int(metrics.get("claim_elapsed_ms_max") or 0), elapsed)
+    if ownership_recovery:
+        metrics["ownership_recovery_count"] = int(metrics.get("ownership_recovery_count") or 0) + 1
+    data["metrics"] = metrics
+    return _session_transition(
+        data,
+        event,
+        task=task,
+        detail={
+            "lease_generation": int(grant.get("LeaseGeneration") or 0),
+            "claim_mode": str(grant.get("ClaimMode") or ""),
+            "canonical_ref_races": ref_races,
+            "claim_elapsed_ms": elapsed,
+        },
+    )
+
+
 def _mutate_session(
     root: Path,
     *,
@@ -272,7 +363,7 @@ def start_session(
     session_id = f"WS_{utcnow().strftime('%Y%m%dT%H%M%SZ')}_{secrets.token_hex(3).upper()}"
     deadline = utcnow() + timedelta(minutes=minutes)
     data: dict[str, object] = {
-        "schema": "UOS_WORK_SESSION_V1_LITE",
+        "schema": "UOS_WORK_SESSION_V2",
         "session_id": session_id,
         "agent_id": agent_id,
         "state": "ACTIVE",
@@ -291,6 +382,20 @@ def start_session(
         "completed_tasks": [],
         "current_task": "",
         "stop_reason": "",
+        "event_sequence": 0,
+        "events": [],
+        "last_transition_at": iso(),
+        "metrics": {
+            "claims_succeeded": 0,
+            "tasks_completed": 0,
+            "no_match_count": 0,
+            "review_block_count": 0,
+            "ownership_recovery_count": 0,
+            "adopted_claim_count": 0,
+            "canonical_ref_races": 0,
+            "claim_elapsed_ms_total": 0,
+            "claim_elapsed_ms_max": 0,
+        },
     }
     rel = _write_session_local(root, agent_id, session_id, data)
     if _has_remote(root, remote):
@@ -364,8 +469,112 @@ def next_step(
     if state not in {"ACTIVE", "STOPPING"}:
         return {"status": "SESSION_STOPPED", "session": session}
 
+    capability = session.get("capability") or {}
+    if not isinstance(capability, dict):
+        raise WorkSessionError("invalid session capability envelope")
+
     live_claims = _live_agent_claims(root, commit, agent_id)
     current = str(session.get("current_task") or "")
+
+    if current:
+        if live_claims and current not in live_claims:
+            return {
+                "status": "RECOVERY_REQUIRED",
+                "reason": "SESSION_CURRENT_DIFFERS_FROM_LIVE_AGENT_CLAIM",
+                "task": current,
+                "active_claims": live_claims,
+                "session": session,
+                "instruction": "Do not continue work or claim another task until ownership is reconciled.",
+            }
+        if not live_claims and not _canonical_file_exists(root, commit, f"coordination/completed/{current}.done"):
+            lock = _canonical_claim_meta(root, commit, current)
+            if not lock:
+                return {
+                    "status": "OWNERSHIP_LOST",
+                    "reason": "CURRENT_CLAIM_LOCK_MISSING",
+                    "task": current,
+                    "session": session,
+                    "instruction": "Do not continue the task. Run Claim Integrity recovery before doing more work.",
+                }
+            if lock.get("AgentID") != agent_id:
+                return {
+                    "status": "OWNERSHIP_LOST",
+                    "reason": "CURRENT_TASK_REASSIGNED",
+                    "task": current,
+                    "canonical_owner": lock.get("AgentID"),
+                    "session": session,
+                    "instruction": "Stop work on this task; another Agent owns the canonical Lease.",
+                }
+            if not _lock_stale(lock):
+                return {
+                    "status": "RECOVERY_REQUIRED",
+                    "reason": "LIVE_CLAIM_NOT_DISCOVERABLE",
+                    "task": current,
+                    "session": session,
+                }
+
+            recovery_started = time.perf_counter()
+            recovered = claim_best(
+                root,
+                agent_id=agent_id,
+                capability_tier=int(capability.get("tier") or 1),
+                tools=";".join(str(x) for x in capability.get("tools", [])),
+                context_class=str(capability.get("context_class") or "S"),
+                roles=";".join(str(x) for x in capability.get("roles", [])),
+                project=str(session.get("project") or ""),
+                task=current,
+                lease_minutes=lease_minutes,
+                ack_execution_epoch=ack_execution_epoch,
+                remote=remote,
+                branch=branch,
+                attempts=2,
+            )
+            if recovered.returncode != 0:
+                detail_obj: object = recovered.stdout.strip() or recovered.stderr.strip()
+                try:
+                    detail_obj = json.loads(recovered.stdout)
+                except Exception:
+                    pass
+                return {
+                    "status": "OWNERSHIP_LOST",
+                    "reason": "EXACT_CURRENT_RECLAIM_FAILED",
+                    "task": current,
+                    "detail": detail_obj,
+                    "session": session,
+                    "instruction": "Do not claim unrelated work from this session until the current task is reconciled.",
+                }
+            grant = json.loads(recovered.stdout)
+            if not isinstance(grant, dict) or str(grant.get("CanonicalID") or "") != current:
+                raise WorkSessionError("exact current-task recovery returned a different task")
+            runtime = grant.get("canonical_runtime")
+            if not isinstance(runtime, dict):
+                runtime = {}
+            if not runtime.get("runner_elapsed_ms"):
+                runtime["runner_elapsed_ms"] = round((time.perf_counter() - recovery_started) * 1000)
+                grant["canonical_runtime"] = runtime
+
+            session = _mutate_session(
+                root,
+                agent_id=agent_id,
+                session_id=session_id,
+                remote=remote,
+                branch=branch,
+                mutate=lambda data: _record_claim_metrics(
+                    data,
+                    grant,
+                    event="CURRENT_TASK_RECLAIMED",
+                    task=current,
+                    ownership_recovery=True,
+                ),
+            )
+            return {
+                "status": "CURRENT_TASK_RECLAIMED",
+                "task": current,
+                "grant": grant,
+                "session": session,
+                "instruction": "Continue only the same current task using the new LeaseToken.",
+            }
+
     if not current and live_claims:
         if len(live_claims) > 1:
             return {
@@ -375,13 +584,25 @@ def next_step(
                 "session": session,
             }
         adopted = live_claims[0]
+        def adopt_claim(data: dict[str, object]) -> dict[str, object]:
+            claimed = list(data.get("claimed_tasks", [])) if isinstance(data.get("claimed_tasks"), list) else []
+            if adopted not in claimed:
+                claimed.append(adopted)
+            data["claimed_tasks"] = claimed
+            data["current_task"] = adopted
+            return _session_transition(
+                data,
+                "ADOPTED_CANONICAL_CLAIM",
+                task=adopted,
+                increments={"adopted_claim_count": 1, "ownership_recovery_count": 1},
+            )
         session = _mutate_session(
             root,
             agent_id=agent_id,
             session_id=session_id,
             remote=remote,
             branch=branch,
-            mutate=lambda data: {**data, "current_task": adopted, "claimed_tasks": list(dict.fromkeys([*list(data.get("claimed_tasks", [])), adopted]))},
+            mutate=adopt_claim,
         )
         current = adopted
         if _has_remote(root, remote):
@@ -415,12 +636,19 @@ def next_step(
     if outcome == "CURRENT_COMPLETE":
         finished = str(session.get("current_task") or "")
         def close_current(data: dict[str, object]) -> dict[str, object]:
-            completed = list(data.get("completed_tasks", []))
+            completed = list(data.get("completed_tasks", [])) if isinstance(data.get("completed_tasks"), list) else []
+            increment = 0
             if finished and finished not in completed:
                 completed.append(finished)
+                increment = 1
             data["completed_tasks"] = completed
             data["current_task"] = ""
-            return data
+            return _session_transition(
+                data,
+                "CURRENT_TASK_DURABLY_COMPLETE",
+                task=finished,
+                increments={"tasks_completed": increment},
+            )
         session = _mutate_session(
             root,
             agent_id=agent_id,
@@ -447,9 +675,6 @@ def next_step(
         )
         return {"status": "SESSION_STOPPED", "reason": reason, "session": session}
 
-    capability = session.get("capability") or {}
-    if not isinstance(capability, dict):
-        raise WorkSessionError("invalid session capability envelope")
     proc = claim_best(
         root,
         agent_id=agent_id,
@@ -470,6 +695,19 @@ def next_step(
         except Exception:
             pass
         status = "STOP_REVIEW_PENDING" if proc.returncode == 6 else "STOP_NO_MATCH"
+        metric_key = "review_block_count" if status == "STOP_REVIEW_PENDING" else "no_match_count"
+        session = _mutate_session(
+            root,
+            agent_id=agent_id,
+            session_id=session_id,
+            remote=remote,
+            branch=branch,
+            mutate=lambda data: _session_transition(
+                data,
+                status,
+                increments={metric_key: 1},
+            ),
+        )
         return {"status": status, "detail": detail_obj, "session": session}
 
     grant = json.loads(proc.stdout)
@@ -478,12 +716,12 @@ def next_step(
         raise WorkSessionError("claim succeeded without task id")
 
     def record_claim(data: dict[str, object]) -> dict[str, object]:
-        claimed = list(data.get("claimed_tasks", []))
-        if task_id not in claimed:
-            claimed.append(task_id)
-        data["claimed_tasks"] = claimed
-        data["current_task"] = task_id
-        return data
+        return _record_claim_metrics(
+            data,
+            grant,
+            event="CLAIM_GRANTED",
+            task=task_id,
+        )
 
     try:
         session = _mutate_session(
@@ -610,6 +848,8 @@ def main() -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         if isinstance(result, dict) and str(result.get("status", "")).startswith("STOP_"):
             return 6 if result.get("status") == "STOP_REVIEW_PENDING" else 4
+        if isinstance(result, dict) and result.get("status") in {"OWNERSHIP_LOST", "RECOVERY_REQUIRED"}:
+            return 5
         return 0
     except (WorkSessionError, AgentMatchingError, PublishError) as exc:
         print(f"UOS_SESSION_ERROR: {exc}", file=sys.stderr)
