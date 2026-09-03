@@ -480,7 +480,15 @@ tests/test_*.py
 
 当前回归覆盖 local + multi-clone lifecycle、Broker V2、Request/Grant integrity、RECLAIM/fencing、high contention、Work Session V2、Partial Handoff、quality visibility、durability、Completion Outbox fallback/batch、`WAITING_INTEGRATION` 和 observability。
 
-Phase-6 closeout 已在 GitHub Actions fresh checkout 中通过后再发布 tested runtime code。
+永久验收门为：
+
+```text
+.github/workflows/uos-selftest.yml
+```
+
+2026-09-03，清理完所有临时 candidate harness 后的 Kernel/runtime tree `c009f7d2d92b02f1e3f6bdcd05cec0a09fe405fa` 被 GitHub Actions fresh checkout 精确检出并执行完整 `python tools/selftest.py`。Actions run `33724704449` 最终 **68 / 68 tests PASS**。因此此前“exact-current fresh-checkout 仍缺执行证据”的 blocker 已关闭。
+
+后续仅修改 README / 状态文档的 docs-only commit 不改变上述已验证 Kernel/runtime tree。
 
 ---
 
@@ -513,16 +521,16 @@ Closeout WAITING_INTEGRATION + Outbox observability ✅
 # 17. 当前边界 / 后续仅按需求启用
 
 ```text
-Single-repository UOS lifecycle            ✅
-Broker V2 ownership                        ✅
-Work Session V2                            ✅
-Completion Outbox / batch Integration      ✅
+Single-repository UOS lifecycle             ✅ EXACT-CURRENT SELFTESTED
+Broker V2 ownership                         ✅
+Work Session V2                             ✅
+Completion Outbox / batch Integration       ✅
 Provider-neutral observability              ✅
 Generic scarce-resource admission           ⏳ NEED-DRIVEN
-Adaptive GitHub write/API governor           ⏳ NEED-DRIVEN
-Outbox ref archive / GC                      ⏳ NEED-DRIVEN
-Multi-repository routing                     ❌ requires operator decision
-AI_book dispatch                             ❌ forbidden in current phase
+Adaptive GitHub write/API governor          ⏳ NEED-DRIVEN
+Outbox ref archive / GC                     ⏳ NEED-DRIVEN
+Multi-repository routing                    ❌ requires operator decision
+AI_book dispatch                            ❌ forbidden in current phase
 ```
 
 ---
