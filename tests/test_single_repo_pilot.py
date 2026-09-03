@@ -162,7 +162,8 @@ class SingleRepoPilotTests(unittest.TestCase):
             ]
             results = [proc.communicate() + (proc.returncode,) for proc in procs]
             self.assertEqual([item[2] for item in results], [0, 0], results)
-            rows = list(csv.DictReader((root / "orchestration/projects/PUB/TASK_CATALOG.csv").open(encoding="utf-8")))
+            with (root / "orchestration/projects/PUB/TASK_CATALOG.csv").open(encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
             self.assertEqual({row["id"] for row in rows}, {"TASK_PUB_0", "TASK_PUB_1"})
 
     def test_publish_rejects_paths_outside_repository(self) -> None:
@@ -183,7 +184,8 @@ class SingleRepoPilotTests(unittest.TestCase):
             )
             self.assertEqual(escaped.returncode, 2)
             self.assertIn("must stay inside repository", escaped.stderr)
-            rows = list(csv.DictReader((root / "orchestration/projects/SAFE/TASK_CATALOG.csv").open(encoding="utf-8")))
+            with (root / "orchestration/projects/SAFE/TASK_CATALOG.csv").open(encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
             self.assertEqual(rows, [])
 
     def test_ten_contenders_create_one_owner(self) -> None:
