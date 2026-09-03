@@ -357,7 +357,9 @@ Coverage now includes:
 - `WAITING_INTEGRATION` and old-generation non-misclassification;
 - Claim / Session / Outbox observability.
 
-The Phase-6 closeout workflow validated the runtime patch in a fresh GitHub Actions checkout before publishing the tested code to canonical main. The production observability workflow then executed successfully against the resulting main state.
+The permanent `.github/workflows/uos-selftest.yml` ran from a fresh GitHub Actions checkout of the cleaned final Kernel/runtime tree at commit `c009f7d2d92b02f1e3f6bdcd05cec0a09fe405fa` (Actions run `33724704449`). The checkout resolved `origin/main` to that exact SHA, then `python tools/selftest.py` completed **68 / 68 tests PASS**. This closes the former exact-current fresh-checkout execution-evidence blocker.
+
+The Phase-6 targeted closeout gates and production observability workflow also executed successfully. Documentation-only commits after `c009f7d2...` do not change the tested Kernel/runtime code.
 
 One-command local regression entrypoint remains:
 
@@ -369,13 +371,13 @@ python tools/selftest.py
 
 | Gate | Current result | Notes |
 |---|---|---|
-| Single-repository control plane | PASS FOR CURRENT KERNEL PATHS | Fresh GitHub Actions checkout exercised Phase-6 closeout paths. |
+| Single-repository control plane | PASS / EXACT-CURRENT SELFTESTED | Final cleaned Kernel/runtime tree `c009f7d2...`; permanent selftest run `33724704449`; 68 / 68 PASS. |
 | ExecutionEpoch stale-Agent safety | PASS / TESTED | Current Epoch gate remains active. |
 | Project creation / Task publication | INTEGRATED | WorkRoot constrained. |
 | READY discovery / capability matching | PASS / TESTED | Discovery delegates ownership to Broker. |
 | Broker V2 Request/Grant/Lock | PASS / TESTED | Immutable anchors + active pointer. |
 | Lease / Fencing / exact RECLAIM | PASS / TESTED | Old token/generation fails closed. |
-| Work Session V2 | PASS / TESTED | Recovery, continuation and `WAITING_INTEGRATION`. |
+| Work Session V2 | PASS / TESTED | Recovery, continuation, rejected-result rework priority and `WAITING_INTEGRATION`. |
 | Partial Handoff | PASS / TESTED | Recovery fact without implicit completion/ownership transfer. |
 | Artifact durability | PASS / TESTED | Digest receipt + canonical Done semantics. |
 | Quality visibility | ACTIVE / TESTED | Real work still follows operator-review policy when triggered. |
@@ -388,7 +390,7 @@ python tools/selftest.py
 
 # Remaining boundaries, not Phase-6 blockers
 
-The Phase-6 Claim/Concurrency closeout is complete. The following are deliberately outside this closure:
+The Phase-6 Claim/Concurrency closeout is complete. The former exact-current fresh-checkout test-evidence blocker is also closed. The following are deliberately outside this closure:
 
 1. **AI_book dispatch** — standalone UOS still does not manage AI_book tasks or runtime state.
 2. **Multi-repository orchestration** — requires a new explicit operator decision.
