@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_SEASON_EVIDENCE_AUDIT_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_EVIDENCE_REVIEW
 LeaseGeneration: 1
 LeaseToken: 61a54f55de762ad1acc5d8a37b336976
-ClaimedAt: 2026-09-03T02:56:09Z
-LeaseExpiresAt: 2026-09-03T04:26:09Z
-FencingToken: 1:61a54f55de762ad1acc5d8a37b336976
+CompletedAt: 2026-09-03T02:58:31Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SEASON_EVIDENCE_AUDIT_01.json
