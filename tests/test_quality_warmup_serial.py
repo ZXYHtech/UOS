@@ -9,7 +9,13 @@ import unittest
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1]
-TOOLS = ["uos.py", "canonical_runner.py", "canonical_publish.py", "quality_gate.py"]
+TOOLS = [
+    "uos.py",
+    "canonical_runner.py",
+    "canonical_publish.py",
+    "quality_gate.py",
+    "control_extensions.py",
+]
 
 
 def sh(args: list[str], cwd: Path, *, check: bool = True) -> subprocess.CompletedProcess[str]:
