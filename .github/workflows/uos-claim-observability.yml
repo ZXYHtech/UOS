@@ -1,0 +1,35 @@
+name: UOS claim observability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'coordination/claim_requests/**'
+      - 'coordination/claim_grants/**'
+      - 'coordination/claims/**'
+      - 'coordination/work_sessions/**'
+      - 'coordination/telemetry/claims/**'
+      - 'tools/claim_observability.py'
+      - 'tools/claim_telemetry.py'
+      - 'tools/work_session.py'
+      - '.github/workflows/uos-claim-observability.yml'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build observability snapshot
+        run: |
+          python tools/claim_observability.py \
+            --assert-broker-v2 \
+            --output claim-observability.json
+      - name: Upload observability snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: claim-observability
+          path: claim-observability.json
