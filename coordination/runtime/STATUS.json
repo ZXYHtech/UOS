@@ -16,8 +16,8 @@
     },
     "TRAVEL_GUIDE_DEPTH": {
       "blocked": 3,
-      "claimed": 2,
-      "done": 4,
+      "claimed": 1,
+      "done": 5,
       "ready": 17,
       "total": 26
     },

@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/field/RAIN_CROWD_DECISION_TREE.md",
+      "sha256": "3ceea0d5a3d2672e8fc05d34222448b2adea76114fb727352d8d81307fb842e4"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_FIELD_RAIN_CROWD_01"
+}
