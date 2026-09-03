@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run standalone UOS syntax, lifecycle, CAS, visibility, continuation and handoff regressions."""
+"""Run standalone UOS syntax and full discovered regression coverage."""
 from __future__ import annotations
 
 import shutil
@@ -40,7 +40,9 @@ def main() -> int:
         return proc.returncode
 
     print(
-        "SELFTEST PASS: syntax + local lifecycle + low-level CAS + integrated multi-clone lifecycle + quality visibility + upstream delta + capability matching + bounded work session + partial handoff passed"
+        "SELFTEST PASS: syntax + lifecycle + latest-main CAS + Broker V2 Request/Grant/Lock + "
+        "reclaim/fencing + high-contention Claim + quality visibility + capability matching + "
+        "Work Session V2 + Partial Handoff + Completion Outbox/batch Integration + observability passed"
     )
     return 0
 
