@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_SPOT_BAOPINGKOU_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_CULTURE_REVIEWS
 LeaseGeneration: 1
 LeaseToken: 917e9887b8e673310a4f649ed7fa97ec
-ClaimedAt: 2026-09-03T02:59:54Z
-LeaseExpiresAt: 2026-09-03T04:29:54Z
-FencingToken: 1:917e9887b8e673310a4f649ed7fa97ec
+CompletedAt: 2026-09-03T03:05:13Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_BAOPINGKOU_01.json
