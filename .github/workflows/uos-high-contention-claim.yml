@@ -1,0 +1,37 @@
+name: UOS high-contention claim
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/high_contention_claim.py'
+      - 'tools/agent_matching.py'
+      - 'tools/uos.py'
+      - 'tools/canonical_runner.py'
+      - 'projects/TRAVEL_GUIDE/tools/claim_depth.py'
+      - 'tests/test_high_contention_claim.py'
+      - '.github/workflows/uos-high-contention-claim.yml'
+  workflow_dispatch:
+
+jobs:
+  distinct-task-contention:
+    name: ${{ matrix.scale }} agents / distinct tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        scale: [5, 10, 30]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile contention ingress
+        run: |
+          python -m py_compile tools/high_contention_claim.py
+          python -m py_compile projects/TRAVEL_GUIDE/tools/claim_depth.py
+      - name: Run distinct-task contention test
+        env:
+          UOS_CONTENTION_SCALE: ${{ matrix.scale }}
+        run: python tests/test_high_contention_claim.py -v
