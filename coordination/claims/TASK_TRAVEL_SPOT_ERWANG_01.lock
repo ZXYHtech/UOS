@@ -1,0 +1,22 @@
+Schema: UOS_CLAIM_V1
+CanonicalID: TASK_TRAVEL_SPOT_ERWANG_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+LeaseGeneration: 1
+LeaseToken: ba639b2a06f7d0fed5e3dfad875367e3
+ClaimedAt: 2026-09-03T03:46:10Z
+LeaseExpiresAt: 2026-09-03T05:16:10Z
+FencingToken: 1:ba639b2a06f7d0fed5e3dfad875367e3
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7.request
+GrantID: GRANT-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7.grant
+ClaimMode: CREATE
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
+FencingRequired: YES
+ExecutionEpoch: UOS_EXEC_20260902_01

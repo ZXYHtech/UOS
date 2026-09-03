@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7
+GrantID: GRANT-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7
+CanonicalID: TASK_TRAVEL_SPOT_ERWANG_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+GrantedAt: 2026-09-03T03:46:10Z
+ClaimPath: coordination/claims/TASK_TRAVEL_SPOT_ERWANG_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_SPOT_ERWANG_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_ERWANG_01-G1-ba639b2a06f7.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: ba639b2a06f7d0fed5e3dfad875367e3
+LeaseExpiresAt: 2026-09-03T05:16:10Z
+FencingToken: 1:ba639b2a06f7d0fed5e3dfad875367e3
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/research/HISTORY_CULTURE.md;projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md
+Output: projects/TRAVEL_GUIDE/research/book/spots/ERWANG.md
+Acceptance: Cover maintenance culture and Li Bing memory; elevation cost; dwell; adjacent-node times; current opening signal; dated sources
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_CULTURE_REVIEWS;Generation=1;Token=ba639b2a06f7d0fed5e3dfad875367e3
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
