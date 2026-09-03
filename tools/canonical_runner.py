@@ -66,7 +66,7 @@ def remote_exists(root: Path, remote: str) -> bool:
 
 
 def resolve_transport(root: Path, requested: str, remote: str, branch: str) -> str:
-    """Resolve auto transport without unsafe network-failure fallback.""
+    """Resolve auto transport without unsafe network-failure fallback."""
     if os.environ.get("UOS_INTERNAL_LOCAL") == "1":
         return "local"
     requested = (requested or "auto").lower()
