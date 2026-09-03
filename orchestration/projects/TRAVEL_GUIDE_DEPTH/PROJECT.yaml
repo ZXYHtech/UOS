@@ -1,0 +1,35 @@
+Schema: UOS_PROJECT_V1
+ProjectID: TRAVEL_GUIDE_DEPTH
+ParentProject: TRAVEL_GUIDE
+ProjectFamily: TRAVEL_GUIDE
+Title: Travel Guide — book-depth parallel research
+State: ACTIVE
+RepositoryMode: SAME_REPOSITORY
+WorkRoot: projects/TRAVEL_GUIDE
+Goal: Use the remaining 26 canonical task slots to deepen the Dujiangyan travel book with independently claimable public research, evidence audits, search indexing and final editorial QA.
+PrivacyMode: PUBLIC_ONLY
+MaxTaskCount: 26
+CurrentPlannedTaskCount: 26
+SharedLogicalTaskBudgetWithParent: true
+ParentLogicalTaskCeiling: 50
+ParentExistingCanonicalTasks: 24
+FamilyCanonicalTaskCountAfterPublication: 50
+OperatorReviewPolicy: ONE_CONFIRMATION_THEN_CONTINUE
+OperatorWarmupRequired: 1
+OperatorWarmupStatus: SATISFIED
+OperatorWarmupEvidence: inherited-from-parent-user-approved-requirements-and-explicit-parallel-request
+PostWarmupMode: PARALLEL_ALLOWED_WITH_SAMPLING_AND_HIGH_RISK_REVIEW
+CanonicalWarmupOverrideWired: true
+PublicResearchOnly: true
+NonGoals:
+  - No private relationship context
+  - No exact private origin/date storage
+  - No gift or chat scripts
+  - No booking or payment
+  - No invented demographic or seasonality percentages
+AcceptanceSummary:
+  - 23 independently claimable public research/evidence tasks
+  - 3 dependent integration/search/editor/QA tasks
+  - All outputs remain under projects/TRAVEL_GUIDE/
+  - Source dates and evidence boundaries required
+  - AMap links and travel-time claims must distinguish static planning from realtime navigation
