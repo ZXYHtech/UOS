@@ -1,0 +1,27 @@
+name: UOS Agent Field Book
+
+on:
+  push:
+    branches:
+      - uos-agent-field-book-20260903
+
+permissions:
+  contents: write
+
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Canonical claim facilities task
+        shell: bash
+        run: |
+          set -euo pipefail
+          python projects/TRAVEL_GUIDE/tools/claim_depth.py \
+            --agent-id AG_TRAVEL_FIELD_BOOK \
+            --task TASK_TRAVEL_FIELD_FACILITIES_01 | tee claim-output.json
+          echo '--- CLAIM OUTPUT ---'
+          cat claim-output.json
