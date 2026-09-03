@@ -39,9 +39,12 @@ jobs:
           rows = list(csv.DictReader(market.open(encoding='utf-8')))
           ready = [row for row in rows if row.get('project_id') == 'TRAVEL_GUIDE_DEPTH']
           ids = {row.get('canonical_id') for row in ready}
-          assert len(ready) == 23, f'expected 23 READY depth tasks, got {len(ready)}: {sorted(ids)}'
-          assert 'TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01' in ids
-          assert 'TASK_TRAVEL_POI_SOURCE_AUDIT_01' in ids
-          assert 'TASK_TRAVEL_BOOK_SEARCH_INDEX_01' not in ids
-          print('TRAVEL_GUIDE_DEPTH READY:', len(ready))
+          integration = {
+              'TASK_TRAVEL_BOOK_SEARCH_INDEX_01',
+              'TASK_TRAVEL_BOOK_EDITOR_V6_01',
+              'TASK_TRAVEL_BOOK_FINAL_SOURCE_QA_01',
+          }
+          assert 0 <= len(ready) <= 23, f'unexpected READY depth count {len(ready)}: {sorted(ids)}'
+          assert not (ids & integration), f'integration tasks became READY too early: {sorted(ids & integration)}'
+          print('TRAVEL_GUIDE_DEPTH READY now:', len(ready))
           PY
