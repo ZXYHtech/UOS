@@ -1,0 +1,424 @@
+{
+  "schema": "TRAVEL_GUIDE_BOOK_V6_DATA_V1",
+  "schema_version": 1,
+  "generated_on": "2026-09-03",
+  "language": "zh-CN",
+  "privacy_scope": "PUBLIC_ONLY",
+  "search_index_path": "projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json",
+  "master_path": "projects/TRAVEL_GUIDE/book/BOOK_V6_MASTER.md",
+  "provenance": {
+    "depth_dossier_count": 23,
+    "research_digest_pdf": {
+      "catalog_path": "projects/TRAVEL_GUIDE/RESEARCH_DIGEST.pdf",
+      "available_at_edit_time": false,
+      "handling": "not cited; integration uses current public research baseline plus completed depth dossiers"
+    }
+  },
+  "evidence_policy": {
+    "stable_fact": "May be shown without same-day revalidation when the underlying fact is historical or structural.",
+    "snapshot": "Must display or inherit a refresh date and must not be presented as a future guarantee.",
+    "dynamic": "Must be refreshed T-1 or same day from an authoritative/current operational source.",
+    "prohibited_inference": [
+      "invented visitor age or trip-purpose percentages",
+      "invented month-by-month visitor shares",
+      "invented normal-September weekend multiplier",
+      "treating a bus stop as a railway station or scenic gate",
+      "treating historical gate rules as permanently valid",
+      "promising Nanqiao blue-light appearance",
+      "promising timetable availability from a public schedule snapshot"
+    ]
+  },
+  "shared_core": {
+    "priority_order": [
+      "human_safety",
+      "return_controllability",
+      "hydraulic_core",
+      "seated_meal_and_recovery",
+      "optional_bridge_hillside_photo_night_nodes"
+    ],
+    "hydraulic_system": {
+      "title": "三大水利核心",
+      "conceptual_order": ["spot_yuzui", "spot_feishayan", "spot_baopingkou"],
+      "concept_note": "工程解释顺序与当天游客实际步行顺序可以不同；地图与路线必须分别维护 conceptual order 和 circulation order。",
+      "short_explainer": [
+        {"source_id": "spot_yuzui", "role": "分流岷江，理解因势利导"},
+        {"source_id": "spot_feishayan", "role": "溢洪、排沙与调节"},
+        {"source_id": "spot_baopingkou", "role": "控制进入成都平原灌区的水量"}
+      ]
+    },
+    "transport": {
+      "primary_station": "spot_lidui_park_station",
+      "fallback_station": "spot_dujiangyan_station",
+      "default_gate": "spot_gate1",
+      "upper_entry_source": "spot_qinyan",
+      "upper_entry_status": "conditional_reverify",
+      "time_matrix_source": "field_amap_time_matrix",
+      "return_matrix_source": "field_return_rail_matrix"
+    },
+    "urban_finish": {
+      "old_city": "spot_guanxian_old_city",
+      "nanqiao": "spot_nanqiao",
+      "night_effect_guaranteed": false
+    },
+    "budget": {
+      "public_two_person_target_cny": 500,
+      "status": "feasible_with_base_spend_discipline",
+      "default_paid_night_tour": false,
+      "rule": "Protect core admission, reliable return, one seated meal, water/rest and contingency before optional paid extras."
+    }
+  },
+  "schemes": [
+    {
+      "id": "A",
+      "title": "平衡经典",
+      "subtitle": "第一次来最稳",
+      "best_for": ["first_visit", "balanced_culture_food", "medium_walking"],
+      "mandatory_sources": [
+        "spot_lidui_park_station",
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_guanxian_old_city",
+        "spot_nanqiao"
+      ],
+      "optional_sources": ["spot_fulong", "spot_anlan"],
+      "base_sequence": [
+        "spot_lidui_park_station",
+        "spot_gate1",
+        "spot_fulong",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_anlan",
+        "spot_guanxian_old_city",
+        "spot_nanqiao",
+        "spot_lidui_park_station"
+      ],
+      "walking_level": "medium",
+      "elevation_level": "low_to_medium",
+      "meal_strategy": "one_seated_meal_plus_optional_small_taste",
+      "cut_rules": [
+        "If Anlan Bridge queue is long, skip it.",
+        "If scenic core runs late, shorten old-city wandering rather than rail buffer.",
+        "If waiting for full darkness threatens return buffer, leave Nanqiao earlier."
+      ],
+      "source_refs": ["field_rain_crowd_decision_tree", "evidence_reviews_2026"]
+    },
+    {
+      "id": "B",
+      "title": "历史文化深度",
+      "subtitle": "把工程真正看懂",
+      "best_for": ["hydraulic_history", "li_bing_culture", "higher_elevation_tolerance"],
+      "mandatory_sources": [
+        "spot_yuzui",
+        "spot_feishayan",
+        "spot_baopingkou",
+        "spot_erwang"
+      ],
+      "optional_sources": ["spot_qinyan", "spot_anlan", "spot_fulong"],
+      "preferred_sequence_if_upper_entry_verified": [
+        "spot_lidui_park_station",
+        "spot_qinyan",
+        "spot_erwang",
+        "spot_anlan",
+        "spot_yuzui",
+        "spot_feishayan",
+        "spot_baopingkou",
+        "spot_fulong",
+        "spot_guanxian_old_city",
+        "spot_nanqiao"
+      ],
+      "fallback_sequence_if_upper_entry_unverified": [
+        "spot_lidui_park_station",
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_anlan",
+        "spot_erwang",
+        "spot_guanxian_old_city",
+        "spot_nanqiao"
+      ],
+      "walking_level": "medium_high",
+      "elevation_level": "medium_high",
+      "dynamic_gate_rule": "Qinyan/upper entry must be verified T-1 or same day; otherwise use fallback sequence.",
+      "cut_rules": [
+        "If upper entry is not verified, do not invent Gate 6 access.",
+        "If rain makes hillside surfaces unattractive, remove Qinyan/Erwang climb.",
+        "If fatigue rises, preserve hydraulic core before hill nodes."
+      ],
+      "source_refs": ["evidence_poi_source_audit", "evidence_reviews_2026"]
+    },
+    {
+      "id": "C",
+      "title": "美食 + 灌县古城",
+      "subtitle": "水利核心之后看活的城市",
+      "best_for": ["food", "old_city", "urban_atmosphere"],
+      "mandatory_sources": [
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_guanxian_old_city"
+      ],
+      "optional_sources": ["spot_anlan", "spot_nanqiao"],
+      "food_sources": [
+        "food_representative_snack",
+        "food_courtyard_meal",
+        "food_quiet_old_city_meal"
+      ],
+      "base_sequence": [
+        "spot_lidui_park_station",
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_anlan",
+        "food_representative_snack",
+        "spot_guanxian_old_city",
+        "food_courtyard_meal",
+        "spot_nanqiao",
+        "spot_lidui_park_station"
+      ],
+      "walking_level": "medium",
+      "elevation_level": "low_to_medium",
+      "merchant_rule": "A named merchant is never a single point of failure; refresh operation and replace within the same area if closed or queued.",
+      "cut_rules": [
+        "Skip a snack if queue or sell-out would delay the core day.",
+        "Keep only one formal seated meal.",
+        "Do not equate tourist retail density with cultural authenticity."
+      ],
+      "source_refs": ["evidence_reviews_2026"]
+    },
+    {
+      "id": "D",
+      "title": "舒适低赶路",
+      "subtitle": "少一点是设计，不是缺失",
+      "best_for": ["lower_rush", "rest_quality", "conversation_friendly"],
+      "mandatory_sources": [
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui"
+      ],
+      "optional_sources": ["spot_fulong", "spot_anlan", "spot_guanxian_old_city", "spot_nanqiao"],
+      "excluded_by_default": ["spot_erwang", "spot_qinyan"],
+      "walking_level": "medium_low_to_medium",
+      "elevation_level": "low",
+      "rest_policy": "Use seated meal and at least one quiet recovery block; a 15k-step figure is a ceiling-like planning reference, never a quota.",
+      "cut_rules": [
+        "At moderate fatigue, sit 10-20 minutes before deciding the next node.",
+        "Delete bridge, climbs and repeat photo points before core hydraulic nodes.",
+        "Prefer an earlier comfortable train over designing around the last possible return."
+      ],
+      "source_refs": ["field_facilities", "field_rain_crowd_decision_tree", "evidence_reviews_2026"]
+    },
+    {
+      "id": "E",
+      "title": "天气 / 拥堵韧性",
+      "subtitle": "现场能改才是真的计划",
+      "best_for": ["rain_risk", "weekend_uncertainty", "crowd_resilience"],
+      "mandatory_sources": [
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui"
+      ],
+      "optional_sources": ["spot_anlan", "spot_erwang", "spot_qinyan", "spot_nanqiao"],
+      "base_sequence": [
+        "spot_lidui_park_station",
+        "spot_gate1",
+        "spot_baopingkou",
+        "spot_feishayan",
+        "spot_yuzui",
+        "spot_guanxian_old_city",
+        "spot_nanqiao"
+      ],
+      "walking_level": "variable",
+      "elevation_level": "conditional",
+      "decision_source": "field_rain_crowd_decision_tree",
+      "return_strategy": "Keep both Lidui Park and Dujiangyan station options open until final ticket/road check.",
+      "cut_rules": [
+        "Official closure, thunderstorm, heavy-rain, flash-flood or geohazard notice overrides itinerary completeness.",
+        "Skip bridge/hillside branches when surfaces, crowd or fatigue make them unattractive.",
+        "Move seated meal/rest earlier when weather or crowd pressure rises.",
+        "Skip Nanqiao and return if the evening branch weakens return control."
+      ],
+      "source_refs": ["field_rain_crowd_decision_tree", "field_return_rail_matrix", "field_amap_time_matrix"]
+    }
+  ],
+  "spot_cards": [
+    {
+      "source_id": "spot_lidui_park_station",
+      "display_name": "离堆公园站",
+      "role": "primary_central_rail",
+      "dynamic": true,
+      "caveat": "Do not confuse with same-name bus stops; target-date timetable required."
+    },
+    {
+      "source_id": "spot_dujiangyan_station",
+      "display_name": "都江堰站",
+      "role": "alternate_rail_return",
+      "dynamic": true,
+      "caveat": "Longer road transfer from central cluster; compare live ETA plus station buffer."
+    },
+    {
+      "source_id": "spot_gate1",
+      "display_name": "都江堰景区 1 号门",
+      "role": "default_city_side_gate",
+      "dynamic": true,
+      "caveat": "Current evidence is strong, but entry/exit rules remain date-specific."
+    },
+    {
+      "source_id": "spot_fulong",
+      "display_name": "伏龙观",
+      "role": "history_context",
+      "dynamic": true,
+      "caveat": "Internal opening details may change."
+    },
+    {
+      "source_id": "spot_baopingkou",
+      "display_name": "宝瓶口",
+      "role": "hydraulic_core",
+      "dynamic": true,
+      "caveat": "Exact route/pin and internal access are scheme-level operational facts."
+    },
+    {
+      "source_id": "spot_feishayan",
+      "display_name": "飞沙堰",
+      "role": "hydraulic_core",
+      "dynamic": true,
+      "caveat": "Interpret as part of one hydraulic system."
+    },
+    {
+      "source_id": "spot_yuzui",
+      "display_name": "鱼嘴分水堤",
+      "role": "hydraulic_core",
+      "dynamic": true,
+      "caveat": "Conceptual upstream order must not be confused with visitor circulation order."
+    },
+    {
+      "source_id": "spot_anlan",
+      "display_name": "安澜索桥",
+      "role": "optional_bridge",
+      "dynamic": true,
+      "caveat": "Queue, weather and temporary management can make it skippable."
+    },
+    {
+      "source_id": "spot_erwang",
+      "display_name": "二王庙",
+      "role": "hillside_culture",
+      "dynamic": true,
+      "caveat": "Adds climb/elevation; not a default low-rush node."
+    },
+    {
+      "source_id": "spot_qinyan",
+      "display_name": "秦堰楼",
+      "role": "upper_viewpoint_conditional_entry",
+      "dynamic": true,
+      "caveat": "Qinyan Tower is stable; Gate 6 everyday entry is not verified."
+    },
+    {
+      "source_id": "spot_guanxian_old_city",
+      "display_name": "灌县古城",
+      "role": "urban_food_rest_cluster",
+      "dynamic": true,
+      "caveat": "Commercial convenience should not be presented as proof of authenticity."
+    },
+    {
+      "source_id": "spot_nanqiao",
+      "display_name": "南桥",
+      "role": "optional_evening_riverfront",
+      "dynamic": true,
+      "caveat": "Do not promise exact blue-light appearance or fixed lighting result."
+    }
+  ],
+  "food_cards": [
+    {
+      "source_id": "food_courtyard_meal",
+      "display_name": "庭院小酌（瑞莲街店）",
+      "role": "formal_meal",
+      "snapshot_date": "2026-09-03",
+      "dynamic_fields": ["operation", "hours", "price", "queue", "reservation", "map_pin"]
+    },
+    {
+      "source_id": "food_quiet_old_city_meal",
+      "display_name": "西街往事私房菜",
+      "role": "quiet_old_city_formal_meal",
+      "snapshot_date": "2026-09-03",
+      "dynamic_fields": ["operation", "address_expression", "hours", "price", "queue", "map_pin"]
+    },
+    {
+      "source_id": "food_representative_snack",
+      "display_name": "赵卖面",
+      "role": "representative_snack",
+      "snapshot_date": "2026-09-03",
+      "dynamic_fields": ["operation", "hours", "sell_out", "queue", "map_pin"]
+    }
+  ],
+  "field_tools": [
+    {
+      "source_id": "field_amap_time_matrix",
+      "title": "高德时间矩阵",
+      "use": "static planning ranges plus live ETA override"
+    },
+    {
+      "source_id": "field_return_rail_matrix",
+      "title": "晚间返程铁路候选矩阵",
+      "use": "two-station fallback logic; not a ticket guarantee"
+    },
+    {
+      "source_id": "field_facilities",
+      "title": "现场设施与恢复",
+      "use": "toilet, visitor center, seating/rest and shuttle boundaries"
+    },
+    {
+      "source_id": "field_rain_crowd_decision_tree",
+      "title": "雨天 / 拥堵 / 疲劳决策树",
+      "use": "if-then route cuts and safety/return priority"
+    }
+  ],
+  "evidence_cards": [
+    {
+      "source_id": "evidence_reviews_2026",
+      "title": "游客评论审计",
+      "key_boundary": "Recurring themes are qualitative; no population percentages."
+    },
+    {
+      "source_id": "evidence_visitor_profile_audit",
+      "title": "游客画像审计",
+      "key_boundary": "Exact 2026 age and trip-purpose shares are not publicly verified."
+    },
+    {
+      "source_id": "evidence_seasonality_audit",
+      "title": "季节性审计",
+      "key_boundary": "Holiday peak risk is verified; normal September weekend multiplier is not."
+    },
+    {
+      "source_id": "evidence_poi_source_audit",
+      "title": "POI / 入口审计",
+      "key_boundary": "Gate and access status are dynamic; bus-stop category traps are prohibited."
+    }
+  ],
+  "t_minus_1_checklist": [
+    "scenic_opening_and_crowd_alert",
+    "gate_1_and_any_upper_gate_entry_rule",
+    "anlan_and_internal_circulation_status",
+    "liduipark_and_dujiangyan_target_date_train_and_ticket",
+    "live_amap_eta_and_road_control",
+    "weather_thunderstorm_flash_flood_geohazard_alert",
+    "merchant_operation_location_hours_and_queue",
+    "nanqiao_as_optional_not_guaranteed_light_effect"
+  ],
+  "mobile_sections": [
+    {"id": "choose_scheme", "title": "先选方案", "order": 1},
+    {"id": "today_checks", "title": "今天先检查", "order": 2},
+    {"id": "hydraulic_core", "title": "三分钟看懂水利", "order": 3},
+    {"id": "route", "title": "路线与切点", "order": 4},
+    {"id": "food", "title": "吃什么", "order": 5},
+    {"id": "return", "title": "怎么稳稳返程", "order": 6},
+    {"id": "rain_crowd", "title": "下雨 / 拥堵怎么办", "order": 7},
+    {"id": "sources", "title": "证据与刷新日期", "order": 8}
+  ]
+}
