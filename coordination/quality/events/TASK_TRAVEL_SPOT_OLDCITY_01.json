@@ -15,12 +15,15 @@
   "project_warmup_override_satisfied": true,
   "review_reason": "DETERMINISTIC_SAMPLE",
   "review_required": true,
-  "review_status": "PENDING",
+  "review_status": "ACCEPTED",
   "risk_tier": "LOW",
   "rule_epoch": 1,
   "rule_version": "VISIBILITY_V1",
   "schema": "UOS_QUALITY_EVENT_V1",
   "sequence": 20,
   "task": "TASK_TRAVEL_SPOT_OLDCITY_01",
-  "title": "Deep dossier for Guanxian Old City"
+  "title": "Deep dossier for Guanxian Old City",
+  "reviewed_at": "2026-09-03T04:26:00Z",
+  "reviewed_by": "OPERATOR",
+  "review_feedback": "User authorized continuation; sampled result accepted."
 }
