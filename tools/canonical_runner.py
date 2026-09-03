@@ -304,6 +304,10 @@ def _decorate_claim_grant(
         return subprocess.CompletedProcess(proc.args, 2, "", f"UOS_GRANT_ERROR: invalid claim response: {exc}\n")
     if not isinstance(packet, dict):
         return subprocess.CompletedProcess(proc.args, 2, "", "UOS_GRANT_ERROR: claim response is not an object\n")
+    # Broker V2 already wrote Request + Grant + Lock inside the local state
+    # mutation. The canonical runner now only publishes that whole tree via CAS.
+    if packet.get("GrantPath") and packet.get("RequestPath"):
+        return proc
     task_id = str(packet.get("CanonicalID") or option_value(local_argv, "--task") or "")
     agent_id = str(packet.get("AgentID") or option_value(local_argv, "--agent-id") or "")
     generation = str(packet.get("LeaseGeneration") or "")

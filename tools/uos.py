@@ -45,6 +45,19 @@ except ModuleNotFoundError:
         write_durability_receipt,
     )
 
+try:
+    from claim_broker_v2 import (
+        ClaimBrokerError,
+        claim_exact as broker_claim_exact,
+        validate_owned_lock as broker_validate_owned_lock,
+    )
+except ModuleNotFoundError:
+    from tools.claim_broker_v2 import (
+        ClaimBrokerError,
+        claim_exact as broker_claim_exact,
+        validate_owned_lock as broker_validate_owned_lock,
+    )
+
 TASK_FIELDS = [
     "id", "priority", "status", "role", "title", "deps", "inputs", "output",
     "project_id", "phase", "workstream", "exclusive_keys", "size_class",
@@ -412,55 +425,35 @@ def command_claim(args: argparse.Namespace) -> int:
         if not row:
             print(json.dumps({"status": "NO_MATCH"}))
             return 4
-        task_id = row["id"]
-        path = claim_path(root, task_id)
-        old = parse_scalar_file(path)
-        generation = 1
-        if old:
-            if not is_stale(old):
-                print(json.dumps({"status": "NO_MATCH", "reason": "ALREADY_CLAIMED", "task": task_id}))
-                return 4
-            generation = int(old.get("LeaseGeneration") or 0) + 1
-            path.unlink(missing_ok=True)
-        token = secrets.token_hex(16)
-        expiry = utcnow() + timedelta(minutes=args.lease_minutes)
-        claim = {
-            "Schema": "UOS_CLAIM_V1",
-            "CanonicalID": task_id,
-            "ProjectID": row.get("project_id", ""),
-            "AgentID": args.agent_id,
-            "LeaseGeneration": generation,
-            "LeaseToken": token,
-            "ClaimedAt": iso(),
-            "LeaseExpiresAt": iso(expiry),
-            "FencingToken": f"{generation}:{token}",
-        }
-        write_kv(path, claim)
+        try:
+            claim = broker_claim_exact(
+                root,
+                row,
+                agent_id=args.agent_id,
+                lease_minutes=args.lease_minutes,
+                execution_epoch=execution_epoch(root),
+            )
+        except ClaimBrokerError as exc:
+            raise UOSError(str(exc)) from exc
+        if str(claim.get("status", "")).upper() == "NO_MATCH":
+            print(json.dumps(claim, ensure_ascii=False, indent=2))
+            return 4
         reconcile(root)
-    claim.update(
-        {
-            "Status": "GRANTED",
-            "Inputs": row.get("inputs", ""),
-            "Output": row.get("output", ""),
-            "Acceptance": row.get("acceptance", ""),
-        }
-    )
     print(json.dumps(claim, ensure_ascii=False, indent=2))
     return 0
 
 
 def current_owned_lock(root: Path, args: argparse.Namespace) -> tuple[Path, dict[str, str]]:
-    path = claim_path(root, args.task)
-    lock = parse_scalar_file(path)
-    if not lock:
-        raise UOSError("claim not found")
-    if lock.get("AgentID") != args.agent_id:
-        raise UOSError("FENCED: wrong owner")
-    if lock.get("LeaseToken") != args.lease_token:
-        raise UOSError("FENCED: stale lease token")
-    if is_stale(lock):
-        raise UOSError("FENCED: lease expired")
-    return path, lock
+    try:
+        return broker_validate_owned_lock(
+            root,
+            task_id=args.task,
+            agent_id=args.agent_id,
+            lease_token=args.lease_token,
+            require_unexpired=True,
+        )
+    except ClaimBrokerError as exc:
+        raise UOSError(str(exc)) from exc
 
 
 def command_renew(args: argparse.Namespace) -> int:
