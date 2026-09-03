@@ -1,0 +1,9 @@
+Schema: UOS_DONE_V1
+CanonicalID: TASK_TRAVEL_FIELD_AMAP_MATRIX_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+LeaseGeneration: 2
+LeaseToken: d6e65d51aaa93c01d87cfcfe268e8856
+CompletedAt: 2026-09-03T04:31:56Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_FIELD_AMAP_MATRIX_01.json
