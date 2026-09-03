@@ -22,12 +22,11 @@ for rel in FILES:
     text = path.read_text(encoding="utf-8")
     if '"claim_broker_v2.py"' in text:
         continue
-    # Multi-line lists: insert after uos.py. Single-line lists: insert after uos.py token.
-    if '    "uos.py",\n' in text:
-        text = text.replace('    "uos.py",\n', '    "uos.py",\n    "claim_broker_v2.py",\n', 1)
-    elif 'TOOLS = ["uos.py", ' in text:
-        text = text.replace('TOOLS = ["uos.py", ', 'TOOLS = ["uos.py", "claim_broker_v2.py", ', 1)
-    else:
+    marker = '"uos.py",'
+    pos = text.find(marker)
+    if pos < 0:
         raise SystemExit(f"TOOLS fixture anchor not found in {rel}")
+    insert_at = pos + len(marker)
+    text = text[:insert_at] + ' "claim_broker_v2.py",' + text[insert_at:]
     path.write_text(text, encoding="utf-8")
     print("patched", rel)
