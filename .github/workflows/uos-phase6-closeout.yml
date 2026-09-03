@@ -63,6 +63,7 @@ jobs:
             echo 'No closeout kernel patch needed.'
             exit 0
           fi
+          rm -f phase6-closeout.log
           git config user.name 'UOS Kernel Bot'
           git config user.email 'uos-kernel@example.invalid'
           git add \
