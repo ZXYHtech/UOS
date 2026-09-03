@@ -1,60 +1,79 @@
 # UOS — Universal Orchestration System
 
-> 从一句目标开始，把项目拆成可发布、可领取、可恢复、可审查的任务，并让多个 Agent 通过 Git 协同推进。
+> 从一句目标开始，把项目拆成可发布、可领取、可恢复、可审查的任务，并让多个 Agent 通过 Git 形成可验证的 canonical 协作状态。
 
 ## 当前阶段：单仓验证
 
 `ZXYHtech/UOS` 当前仍是 **single-repository validation**。
 
-现阶段只管理存放在本仓库里的项目、任务和产物；**不调度 AI_book，不向 AI_book 写任务，不做跨仓运行态同步，也不启动多仓调度。** 详细边界见 `docs/CURRENT_PHASE.md`。
+现阶段只管理本仓库内的项目、任务和产物：
 
-第一个普通项目 `QUICKBOARD` 已完成；当前继续验证 standalone Kernel 本身。
+- ✅ standalone UOS 项目 / Task / Claim / Complete / Handoff / Work Session；
+- ✅ 同一仓库多个独立 Clone / Agent 的 latest-main Git CAS；
+- ✅ Broker V2 Request / Grant / Lock ownership；
+- ✅ Completion Outbox / mechanical batch Integration；
+- ❌ 不调度 AI_book；
+- ❌ 不复制 AI_book runtime state；
+- ❌ 不启用跨仓任务路由。
 
-## 1. Boot：先取得当前 ExecutionEpoch
+AI_book 只可作为通用 Kernel 经验的只读历史证据。边界和当前验收状态见：
 
-最低环境：`git + Python 3`。
+```text
+docs/CURRENT_PHASE.md
+docs/AI_BOOK_CLAIM_DELTA_SYNC_20260903.md
+```
+
+---
+
+# 1. 核心生命周期
+
+当前 canonical 路径：
+
+```text
+Boot / ExecutionEpoch
+→ Project init
+→ Task publish
+→ Reconcile READY Work Market
+→ optional capability matching
+→ Broker V2 Claim
+   Request → Grant → active Lock
+→ Work
+→ Renew / Lease / Fencing
+→ Complete
+   ├─ direct latest-main CAS
+   └─ pure main-ref race exhaustion only
+      → Completion Outbox
+      → mechanical batch ingest
+→ canonical outputs + durability + .done
+→ quality / preview / review gate
+→ Work Session continuation / handoff / safe stop
+```
+
+Git 是 canonical 仲裁者；Python 是执行器；GitHub Actions 是验证/观测适配器，不是第二份 ownership truth。
+
+---
+
+# 2. Boot / ExecutionEpoch
 
 ```bash
 python tools/uos.py boot
 ```
 
-Boot 会返回当前：
-
-```text
-execution_epoch: UOS_EXEC_20260902_01
-```
-
-发生执行语义变更后，旧 Agent / 旧聊天上下文不能继续用旧规则产生新的 canonical 控制面写入。
-
-以下关键动作必须显式确认当前 Epoch：
-
-```text
-project init
-task publish
-claim
-renew
-complete
-reconcile
-partial handoff create
-work session mutation
-task requirement mutation
-```
-
-统一写法：
+当前关键控制面变更需要确认 `.uos/EXECUTION_CONTRACT.yaml` 中的 `ExecutionEpoch`：
 
 ```bash
 python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <CURRENT_EPOCH> \
   <command> ...
 ```
 
-`boot` 与 `status` 是发现/检查入口，不要求 Epoch Ack。
+Epoch 不匹配时 fail closed，要求重新 Boot。旧 Agent / 旧聊天上下文不能继续用旧执行语义产生新的 canonical mutation。
 
-Epoch 不匹配会返回 `REBOOT_REQUIRED`，要求重新 Boot，而不是让旧 Agent 静默继续。
+---
 
-## 2. Transport
+# 3. Transport
 
-`tools/uos.py` 有三种 transport：
+`tools/uos.py`：
 
 ```text
 auto      默认
@@ -65,217 +84,157 @@ local     单工作树 / 测试模式
 `auto`：
 
 ```text
-没有 Git remote → local
-存在 canonical remote → git-cas
-remote 已配置但暂时不可达 → FAIL CLOSED
+无 Git remote       → local
+有 canonical remote → git-cas
+remote 已配置但不可达 → fail closed
 ```
 
-绝不因为网络失败偷偷退回 local Claim，避免产生两套 ownership truth。
+不会因网络失败偷偷退回 local ownership。
 
-## 3. 创建项目
+---
+
+# 4. Project / Task / WorkRoot
+
+创建项目：
 
 ```bash
 python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <EPOCH> \
   project init \
   --project-id DEMO \
-  --title "Demo project" \
-  --goal "Build a small demo inside this repository"
+  --title "Demo project"
 ```
 
-默认项目工作根：
-
-```text
-projects/DEMO/
-```
-
-这个 `WorkRoot` 同时是任务输出权限边界。
-
-## 4. 发布任务：输出不能跨 Project WorkRoot
+发布任务：
 
 ```bash
 python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <EPOCH> \
   task publish \
   --project DEMO \
-  --task-id TASK_DEMO_SPEC_01 \
-  --title "Define the demo" \
-  --role ARCHITECT \
-  --priority 1 \
-  --output projects/DEMO/SPEC.md \
-  --acceptance "Define the exact implementation plan"
+  --task-id TASK_DEMO_01 \
+  --title "Build demo" \
+  --output projects/DEMO/result.md \
+  --acceptance "result exists and passes review"
 ```
 
-例如 `DEMO` 项目：
+Task output 必须位于项目 WorkRoot。发布 Task 只表示工作存在：
 
 ```text
-✅ projects/DEMO/result.md
-❌ projects/OTHER/result.md
+Task publication ≠ ownership
 ```
 
-跨项目输出会被 `PATH_AUTHORITY_DENIED` 拒绝。
+---
 
-**Task publication ≠ Ownership。** 发布任务不会制造 Claim 或 Done。
+# 5. READY Work Market / Agent Matching
 
-## 5. Work Market：不用扫描整个任务池找工作
-
-每次 Reconcile 都会生成：
+Reconcile 派生：
 
 ```text
 coordination/runtime/WORK_MARKET.csv
 ```
 
-它只包含当前 READY 工作，并给出紧凑选择信息：
+它只包含 READY 工作。
 
-- Project / TaskID
-- Priority / Role / Workstream
-- Size
-- Min Capability Tier
-- Context Class
-- Tool Requirements
-- Output
-
-Market 只用于发现：
-
-```text
-Market listing ≠ Ownership
-```
-
-真正 ownership 仍必须通过 canonical Claim。
-
-## 6. Capability / Tool / Context Matching
-
-P1 已加入一个轻量匹配器：
+可选匹配器：
 
 ```text
 tools/agent_matching.py
 ```
 
-它从**最新 canonical Work Market**选择与 Agent 能力匹配的 READY Task，然后仍然调用正常 `uos.py claim`。
+匹配维度包括：
 
-匹配条件：
+- Capability Tier；
+- Tools；
+- Context Class：`XS < S < M < L < XL`；
+- optional Allowed Roles。
 
-```text
-Agent CapabilityTier >= Task MinCapabilityTier
-Agent Tools ⊇ Task ToolRequirements
-Agent ContextCapacity >= Task ContextClass
-Agent Role ∩ Task AllowedRoles ≠ ∅   （配置时）
-```
-
-Context 顺序：
+匹配只决定“适合领取什么”，不决定 ownership：
 
 ```text
-XS < S < M < L < XL
+Market / match ≠ ownership
 ```
 
-示例：
+---
 
-```bash
-python tools/agent_matching.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  claim \
-  --agent-id AGENT_001 \
-  --project DEMO \
-  --capability-tier 3 \
-  --tools "git;python" \
-  --context M \
-  --roles WORKER
-```
+# 6. Broker V2 Claim ownership
 
-高优先级任务如果要求 Tier 4 + HFSS + L context，而当前 Agent 只有 Tier 3 / git+python / M，则不会硬抢；匹配器可以选择更低优先级但兼容的 READY Task。
-
-匹配结果仍然：
-
-```text
-Task match ≠ ownership
-```
-
-只有后续 canonical Claim 成功才有 ownership。
-
-### 可选 Task 匹配要求
-
-```text
-tools/task_requirements.py
-```
-
-写入：
-
-```text
-orchestration/projects/<PROJECT>/TASK_AGENT_REQUIREMENTS.csv
-```
-
-例如：
-
-```bash
-python tools/task_requirements.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  set \
-  --project DEMO \
-  --task TASK_HFSS_01 \
-  --min-capability 4 \
-  --context L \
-  --tools "python;hfss" \
-  --allowed-roles ENGINEER
-```
-
-Sidecar 只影响**任务匹配提示**，不能改变 Output、WriteScope、依赖、Claim、Lease 或 Acceptance。
-
-## 7. Claim / Lease / Fencing
-
-直接领取仍然可用：
+直接领取：
 
 ```bash
 python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <EPOCH> \
   claim \
   --agent-id AGENT_001 \
   --project DEMO
 ```
 
-成功 Claim 返回：
+当前 ownership 锚点：
 
-- CanonicalID
-- AgentID
-- LeaseGeneration
-- LeaseToken
-- LeaseExpiresAt
-- FencingToken
-- Inputs / Output / Acceptance
-
-多个独立 Clone 同抢时，只有成功推进 canonical main 的 Claim 成为事实；失败者必须从最新 main 重算。
-
-续租：
-
-```bash
-python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  renew \
-  --agent-id AGENT_001 \
-  --task TASK_DEMO_SPEC_01 \
-  --lease-token <TOKEN>
+```text
+immutable Claim Request
+        ↓
+immutable Claim Grant
+        ↓
+active Claim Lock
 ```
 
-旧 owner、旧 token、过期 Lease 或旧 generation 会被 fencing。
+Authority：
 
-## 8. Bounded Work Session：例如“继续工作 30 分钟”
+```text
+UOS_CLAIM_BROKER_V2
+```
 
-P1 的 Work Session 是**持续工作约束**，不是第二个 scheduler：
+成功 Claim 返回：
+
+- CanonicalID；
+- AgentID；
+- LeaseGeneration；
+- LeaseToken；
+- LeaseExpiresAt；
+- FencingToken；
+- RequestID / GrantID；
+- Inputs / Output / Acceptance。
+
+RECLAIM 使用精确 predecessor provenance，并令：
+
+```text
+LeaseGeneration = previous + 1
+```
+
+旧 owner、旧 token、过期 Lease、旧 generation candidate 都必须被 fencing。
+
+---
+
+# 7. High-contention exact Claim
+
+通用入口：
+
+```text
+tools/high_contention_claim.py
+```
+
+它在进入 canonical transaction 之前执行 read-only latest-main preflight、compatibility check、active-lock rejection 和 bounded jitter，减少 burst contention 的无效 main 写入。
+
+5 / 10 / 30 Agent 独立 Clone 的高并发 Claim 回归已覆盖 Request + Grant + Lock + telemetry 四类锚点。
+
+---
+
+# 8. Work Session V2
+
+Tool：
 
 ```text
 tools/work_session.py
 ```
 
-Canonical Session State：
+Session 是 continuation guard，不是第二个 scheduler。
 
-```text
-coordination/work_sessions/<AGENT>/<SESSION>.json
-```
-
-开始 30 分钟：
+开始：
 
 ```bash
 python tools/work_session.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <EPOCH> \
   start \
   --agent-id AGENT_001 \
   --minutes 30 \
@@ -287,153 +246,159 @@ python tools/work_session.py \
   --roles WORKER
 ```
 
-每次准备继续时：
+继续：
 
 ```bash
 python tools/work_session.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
+  --ack-execution-epoch <EPOCH> \
   next \
   --agent-id AGENT_001 \
   --session-id <SESSION_ID>
 ```
 
-Session 只有在以下事实全部成立后才会允许下一次 Claim：
+只有当前 Task 已满足：
 
 ```text
-上一 Task canonical .done
-+ Durability Receipt = DURABLE_READY
-+ Review/Preview Gate 已放行
-+ deadline 未结束
-+ max_tasks 未用完
-+ 存在能力兼容 READY Task
+canonical .done
++ durability = DURABLE_READY
++ quality/review gate released
 ```
 
-常见返回：
+才允许 unrelated next Claim。
+
+关键返回：
 
 ```text
 CLAIM_GRANTED
 WORK_CURRENT_TASK
+CURRENT_TASK_RECLAIMED
+WAITING_INTEGRATION
+OWNERSHIP_LOST
+RECOVERY_REQUIRED
 STOP_REVIEW_PENDING
 REWORK_REQUIRED
 STOP_DURABILITY_PENDING
 STOP_NO_MATCH
 SESSION_STOPPED
-RECOVERY_REQUIRED
 ```
 
-### Deadline 不会粗暴丢弃当前任务
+### stale current Lease
+
+Session 只允许重新 Claim **同一个 current task**。成功后返回新的 Generation/LeaseToken；失败则明确 ownership loss，绝不偷偷切换到别的 Task。
+
+### WAITING_INTEGRATION
+
+如果 current Task 的合法 Completion 已经持久化到 Outbox，Session 会按**当前 canonical GrantID**精确检查对应 ref，并返回：
 
 ```text
-时间到 + 当前没有 Claim
-→ 不再领取
-
-时间到 + 已经拥有 Task
-→ WORK_CURRENT_TASK
-→ stop_after_current=true
+WAITING_INTEGRATION
 ```
 
-也就是说，30 分钟是**新 Claim 边界**，不是“到点直接遗弃当前 ownership”。
+此时不要重复修改/Complete；先运行机械 ingest。旧 Generation 的保留 Outbox ref 不会阻塞新 Generation owner。
 
-详见 `docs/WORK_SESSION_AND_AGENT_MATCHING.md`。
+---
 
-## 8.5 Partial Handoff：做不完时保留成果，不假装 Done
-
-当当前 Agent 因时间、工具、能力、上下文或外部阻塞无法安全完成任务时，不得用 `.done`、`Validation: PASS` 或普通完成消息掩盖未完成状态。
-
-使用：
+# 9. Partial Handoff
 
 ```text
 tools/partial_handoff.py
+tools/handoff_takeover.py
 ```
 
 核心不变量：
 
 ```text
 Handoff ≠ Done
-Handoff ≠ Ownership transfer
+Handoff ≠ ownership transfer
 Handoff ≠ Acceptance PASS
 ```
 
-普通 checkpoint：
+`HANDOFF_READY` 可以持久化恢复证据并让 Lease 进入可 reclaim 状态。后继 Agent 仍必须通过正常 Broker Claim 获得新的 Generation/Token，再读取并重新验证 partial work。
 
-```bash
-python tools/partial_handoff.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  create \
-  --agent-id AGENT_001 \
-  --task TASK_X \
-  --lease-token <TOKEN> \
-  --state PARTIAL \
-  --completed "已完成的具体部分" \
-  --artifact projects/DEMO/draft.py \
-  --known-failures "尚未运行集成测试" \
-  --next-action "运行集成测试并修复失败"
-```
+---
 
-Partial artifact 不直接占用最终 canonical output 路径，而是自动保存为不可变 checkpoint：
-
-```text
-coordination/handoff_artifacts/<TASK>/<HANDOFF_ID>/<SOURCE_PATH>
-```
-
-要把任务交给后继 Agent 时使用：
-
-```text
-state = HANDOFF_READY
-```
-
-成功后会原子记录 handoff/checkpoint，并让当前 Lease 到期；如果当前 Task 属于 Work Session，该 Session 同时变成 `STOPPED / HANDOFF_READY`。随后自动请求一次 Reconcile，使 Work Market 尽快显示可 reclaim 状态。
-
-后继 Agent **必须先正常 Claim**：
+# 10. Complete / Durability
 
 ```bash
 python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  claim \
-  --agent-id AGENT_002 \
-  --task TASK_X
+  --ack-execution-epoch <EPOCH> \
+  complete \
+  --agent-id AGENT_001 \
+  --task TASK_DEMO_01 \
+  --lease-token <TOKEN>
 ```
 
-成功后得到 `LeaseGeneration = previous + 1` 和新 Token，才能读取 handoff：
+Direct fast path 重新验证 owner/token/fencing、WorkRoot、声明 outputs 和 preview contract。
 
-```bash
-python tools/partial_handoff.py \
-  read \
-  --task TASK_X \
-  --agent-id AGENT_002 \
-  --lease-token <NEW_TOKEN>
-```
-
-后继必须把 handoff 视为 `UNVERIFIED_PARTIAL_WORK`，从 checkpoint 恢复后重新执行原任务 Acceptance。旧 owner 的 Renew/Complete 会被 Fencing 拒绝。
-
-详见 `docs/PARTIAL_HANDOFF.md`。
-
-## 9. Preview / Visible Result Gate
-
-当前质量规则：
+canonical 完成事实包括：
 
 ```text
-RuleEpoch = 1
-WarmupRequired = 3
-WarmupMaxConcurrentClaims = 1
-SampleEvery = 5
+业务 outputs / previews
++ coordination/quality/durability/<TASK>.json
++ coordination/completed/<TASK>.done
+- coordination/claims/<TASK>.lock
 ```
 
-规则改变后的前三个真实成果：
+因此：
 
 ```text
-Task 1 → 完成 → 展示成果/预览 → Operator 确认
-Task 2 → 完成 → 展示成果/预览 → Operator 确认
-Task 3 → 完成 → 展示成果/预览 → Operator 确认
+Preview visible
+≠ Operator accepted
+≠ Artifact durably canonical
+≠ Task canonical Done
 ```
 
-前三项通过后才恢复正常并行；之后第 5、10、15…个 completion 抽检，高风险任务始终可以强制 Review。
+---
 
-待确认成果存在时，新 Claim 暂停。Agent 必须直接在对话中呈现结果，不能把常规验收推给用户去 GitHub 自己找。
+# 11. Completion Outbox / Integration Lane
 
-Work Session **必须服从这个 Gate**：即使 session 还有时间，只要当前成果 `review_status=PENDING`，就返回 `STOP_REVIEW_PENDING`，不得继续领取。
+这是 Phase 6 的写竞争治理能力：
 
-预览伴随交付：
+```text
+tools/completion_outbox.py
+python tools/uos.py outbox status
+python tools/uos.py outbox ingest
+```
+
+它**不改变 Claim ownership**。
+
+只有一个已通过全部本地 Complete 校验的 candidate，在 bounded direct-main 尝试最终失败原因纯粹是 main ref race 时，才允许：
+
+```text
+validated completion
+→ non-canonical uos-outbox/* ref
+→ mechanical ingest
+→ latest-main revalidation
+→ canonical batch commit
+```
+
+核心约束：
+
+```text
+Outbox != ownership
+Outbox != Done
+Claim / Renew never use Outbox
+non-race Complete errors never become staged success
+old-generation candidate fails after RECLAIM
+path/read-set conflict fails closed
+```
+
+2 / 5 / 10 / 30 个独立 Completion candidate 的 batch acceptance 均已通过；每批可以用一个 canonical main commit 完成 Integration。
+
+---
+
+# 12. Quality / Preview Gate
+
+当前质量规则由：
+
+```text
+.uos/QUALITY_VISIBILITY_POLICY.yaml
+tools/quality_gate.py
+```
+
+控制。
+
+已知预览伴随交付：
 
 ```text
 SVG         → SVG + PNG
@@ -443,210 +408,140 @@ PPT/DOC/XLS → source + preview PDF
 CAD/EDA     → source + preview PNG
 ```
 
-缺少要求的预览时，Complete 会失败；Preview 不是事后清理任务。
+Pending / Rejected review 会阻止 unrelated next Claim。Agent 应直接在对话中展示结果和预览，而不是让 Operator 日常去 GitHub 自行寻找。
 
-详见 `docs/QUALITY_VISIBILITY_GATE.md`。
+---
 
-## 10. Complete：输出 + Durability Receipt + Done 同一 canonical transaction
-
-Agent 先在自己的工作区生成声明的全部 output / preview，然后：
-
-```bash
-python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  complete \
-  --agent-id AGENT_001 \
-  --task TASK_DEMO_SPEC_01 \
-  --lease-token <TOKEN>
-```
-
-Complete 会重新验证：
+# 13. Observability
 
 ```text
-当前 Claim owner/token/fencing
-+ Project WorkRoot
-+ 声明 output 是否存在
-+ Preview contract
+tools/claim_telemetry.py
+tools/claim_observability.py
+.github/workflows/uos-claim-observability.yml
 ```
 
-成功时在同一个 canonical tree transaction 中发布：
+当前统一 snapshot 包括：
+
+- Request / Grant / active Lock；
+- CREATE / RECLAIM / max LeaseGeneration；
+- Grant throughput；
+- winning CAS attempt / latency / contention；
+- Work Session metrics；
+- Outbox valid queue depth；
+- canonical receipt count；
+- retained ingested / invalid-fenced refs；
+- batch-size p50/p95/max；
+- integration-wait p50/p95/max。
+
+Outbox refs 会保留为 audit/recovery evidence：
 
 ```text
-业务 output / preview
-+ coordination/quality/durability/<TASK>.json
-+ coordination/completed/<TASK>.done
-- coordination/claims/<TASK>.lock
+remote_refs_total ≠ queue depth
+valid_queue_depth = 当前可机械 ingest 的 candidate 数
+canonical receipts = 已完成 Integration 的 authoritative count
 ```
 
-Durability Receipt 使用 `UOS_ARTIFACT_DURABILITY_V1`，为每个声明产物记录路径、类型与 SHA-256。
+观测 workflow 同时按 relevant main change 和 hourly schedule 运行，因此“只有非-main Outbox ref 新增”的待处理队列也能被定期看到。
 
-因此明确区分：
+---
+
+# 14. Git-CAS 实现原则
+
+`tools/canonical_runner.py`：
 
 ```text
-Preview visible
-≠ Operator accepted
-≠ Artifact durably canonical
-≠ Task .done
+fetch latest main
+→ detached worktree
+→ run whole business command
+→ candidate tree
+→ non-force push
+→ ref race: discard candidate
+→ fetch newer main
+→ rerun whole command
 ```
 
-即使 output 命中 `.gitignore`，声明产物仍会被纳入隔离 canonical completion transaction。
+禁止把 stale derived state 只做 re-parent。
 
-## 11. Reconcile / Status
+`tools/canonical_publish.py` 提供底层 expected-blob / require-absent / no-clobber / non-force CAS primitive；普通 Agent 不应绕过高层 lifecycle 直接构造 ownership state。
 
-```bash
-python tools/uos.py status --project DEMO
+---
 
-python tools/uos.py \
-  --ack-execution-epoch UOS_EXEC_20260902_01 \
-  reconcile
-```
-
-派生视图：
-
-```text
-coordination/runtime/TASK_STATUS.csv
-coordination/runtime/WORK_MARKET.csv
-coordination/runtime/STATUS.json
-```
-
-Reconcile 是确定性的。main race 时：
-
-```text
-main@X
-→ 计算 runtime
-→ main 已到 Y
-→ 丢弃 X candidate
-→ 从 Y 建新 worktree
-→ 完整重跑 reconcile
-```
-
-禁止把旧 runtime 仅仅 re-parent 到新 main。
-
-## 12. Git-CAS 实现
-
-### `tools/canonical_runner.py`
-
-把完整业务命令运行在最新 canonical snapshot 的临时 detached worktree 中；ref race 后整个命令重跑。
-
-ExecutionEpoch Ack 会在外层解析，但质量/预览逻辑看到的业务 argv 仍从 `task / claim / complete` 开始，防止全局参数意外绕过 Preview Gate。
-
-### `tools/canonical_publish.py`
-
-底层显式路径 CAS 原语：
-
-- latest-canonical fetch/build/push
-- non-force push
-- create-if-absent
-- expected-blob replacement
-- fenced delete
-- no-clobber
-- Repository Identity remote / branch gate
-
-普通 Agent 应优先使用 `tools/uos.py`；Work Session / Agent Matching / Partial Handoff 只是它前后的薄控制层。
-
-## 13. 从 AI_book 回流的通用经验
-
-2026-09-02 当前已同步：
-
-```text
-P0
-  ExecutionEpoch stale-Agent gate          ✅
-  Project WorkRoot authority                ✅
-  READY Work Market                         ✅
-  Artifact Durability Receipt               ✅
-
-P1
-  Capability / Tool / Context Matching      ✅ CODE / TEST PRESENT
-  Bounded Work Session                      ✅ CODE / TEST PRESENT
-  Partial Handoff                           ✅ CODE / TEST PRESENT
-```
-
-仍未同步：
-
-```text
-P1
-  Resource Admission / Backpressure         ⏳ 真实需求驱动
-
-P2
-  Role Broker / role leases                 ⏸
-  OUTBOX_INGEST                             ⏸
-  complex Kernel self-orchestration         ⏸
-  multi-repository adapters                 ❌ 当前禁止
-```
-
-差异记录：
-
-```text
-docs/AI_BOOK_UPSTREAM_DELTA_20260902.md
-docs/AI_BOOK_P1_SYNC_20260902.md
-docs/PARTIAL_HANDOFF.md
-```
-
-## 14. 自检
+# 15. 自检
 
 ```bash
 python tools/selftest.py
 ```
 
-测试自动发现 `tests/test_*.py`，当前覆盖：
-
-- 同工作树生命周期
-- low-level latest-canonical CAS
-- 独立 Clone 完整生命周期
-- Preview / staged Review Gate
-- RuleEpoch warmup 串行 Claim
-- ExecutionEpoch
-- Project WorkRoot authority
-- WORK_MARKET
-- Artifact Durability Receipt
-- capability / tool / context matching
-- Task Agent requirement sidecar
-- Work Session deadline / max-task / review / durability guard
-- Work Session + capability matching Git-CAS 集成场景
-- Partial Handoff checkpoint / authority / WorkRoot guard
-- HANDOFF_READY Lease expiry + old-owner fencing
-- Work Session stop-on-handoff
-- successor normal Claim Generation+1 + handoff read gate
-
-当前聊天执行环境仍不能完成“从 GitHub fresh clone 当前提交再运行”的真实网络验收，因此不能把 exact-current full suite 写成 PASS；仓库内本地 bare-Git 回归入口已经具备。
-
-## 15. 当前能力边界
+它自动发现：
 
 ```text
-QUICKBOARD 普通项目闭环                   ✅
-同工作树生命周期                           ✅
-多 Clone CAS primitive                    ✅
-多 Clone uos.py lifecycle integration     ✅ CODE / TEST PRESENT
-Visible Result / Preview Gate             ✅ CODE / TEST PRESENT
-ExecutionEpoch                            ✅ CODE / TEST PRESENT
-Project WorkRoot authority                ✅ CODE / TEST PRESENT
-READY Work Market                         ✅ CODE / TEST PRESENT
-Artifact Durability Receipt               ✅ CODE / TEST PRESENT
-Capability-aware matching                 ✅ CODE / TEST PRESENT
-Bounded Work Session                      ✅ CODE / TEST PRESENT
-Partial Handoff                           ✅ CODE / TEST PRESENT
-Resource Admission / Backpressure         ⏳ NEED-DRIVEN
-GitHub fresh-clone 当前提交实跑             ⏳
-外部项目仓库 adapter                       ❌ 当前禁止
-AI_book 调度                                ❌ 当前禁止
-一个 UOS 调度多个仓库                       ❌ 当前禁止
+tests/test_*.py
 ```
 
-## 16. 设计原则
+当前回归覆盖 local + multi-clone lifecycle、Broker V2、Request/Grant integrity、RECLAIM/fencing、high contention、Work Session V2、Partial Handoff、quality visibility、durability、Completion Outbox fallback/batch、`WAITING_INTEGRATION` 和 observability。
+
+Phase-6 closeout 已在 GitHub Actions fresh checkout 中通过后再发布 tested runtime code。
+
+---
+
+# 16. AI_book delta closure
+
+2026-09-03 本次声明的 Claim / Concurrency 六项差距均已闭合：
+
+```text
+Phase 1  high-contention ingress                    ✅
+Phase 2  Request / Grant + Broker V2               ✅
+Phase 3  exact reclaim provenance / integrity      ✅
+Phase 4  contention + fencing acceptance           ✅
+Phase 5  Work Session V2 + telemetry               ✅
+Phase 6  Completion Outbox + batch Integration     ✅
+Closeout WAITING_INTEGRATION + Outbox observability ✅
+```
+
+这只表示 `docs/AI_BOOK_CLAIM_DELTA_SYNC_20260903.md` 中声明的这组六项差距已同步，不表示完整 AI_book parity。
+
+明确没有复制：
+
+- AI_book task/project history；
+- AI_book Requests / Grants / Locks / Done runtime；
+- AI_book domain data；
+- AI_book scheduler authority；
+- cross-repository routing。
+
+---
+
+# 17. 当前边界 / 后续仅按需求启用
+
+```text
+Single-repository UOS lifecycle            ✅
+Broker V2 ownership                        ✅
+Work Session V2                            ✅
+Completion Outbox / batch Integration      ✅
+Provider-neutral observability              ✅
+Generic scarce-resource admission           ⏳ NEED-DRIVEN
+Adaptive GitHub write/API governor           ⏳ NEED-DRIVEN
+Outbox ref archive / GC                      ⏳ NEED-DRIVEN
+Multi-repository routing                     ❌ requires operator decision
+AI_book dispatch                             ❌ forbidden in current phase
+```
+
+---
+
+# 18. 设计原则
 
 1. Durable state lives in files/Git, not chat memory.
-2. Git is the arbiter; Python is the executor; CI is optional.
-3. Task publication / Market listing / capability match / Work Session / Handoff are not ownership; canonical Claim is ownership.
-4. Handoff is never Done or Acceptance PASS; successor must Claim first and revalidate partial work.
-5. Agents may disappear; Lease/Fencing must recover safely.
-6. Ref race means recompute from latest canonical truth, never force/rebase stale decisions.
-7. Rule changes require visible early samples before broad parallelization.
+2. Git is the canonical arbiter; Python is the executor; CI is optional infrastructure.
+3. Publication, Market, matching, Session, Handoff and Outbox are not ownership.
+4. Ownership means current canonical Grant + matching active Lock + current Lease/Fencing.
+5. Outbox is work-plane persistence; only canonical `.done` is completion.
+6. Agents may disappear; Lease/Fencing/recovery must fail closed and recover safely.
+7. Ref race means recompute from latest canonical truth, never force stale decisions.
 8. Review, preview, durability and completion are distinct facts.
-9. Project outputs stay inside explicit WorkRoot authority.
-10. Session deadline controls new Claims; it does not abandon an existing Claim.
-11. Kernel stays domain-neutral and small; do not import historical complexity without a current need.
+9. Project outputs stay inside WorkRoot authority.
+10. Session deadline limits new Claims; it does not abandon current ownership.
+11. Kernel stays domain-neutral; production lessons may be backported only as generic mechanisms.
 12. Prove one-repository operation before multi-repository orchestration.
 
 ## License
 
-Apache-2.0. Do not copy AI_book private project content, credentials, secrets or project runtime history into this public repository.
+Apache-2.0. Do not copy AI_book private project content, credentials, secrets or runtime history into this public repository.
