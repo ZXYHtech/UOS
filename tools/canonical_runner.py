@@ -32,6 +32,7 @@ try:
         event_path,
         load_policy,
         presentation_packet,
+        project_operator_warmup_satisfied,
         record_completion,
         rewrite_task_publish_args,
     )
@@ -44,6 +45,7 @@ except ModuleNotFoundError:
         event_path,
         load_policy,
         presentation_packet,
+        project_operator_warmup_satisfied,
         record_completion,
         rewrite_task_publish_args,
     )
@@ -64,7 +66,7 @@ def remote_exists(root: Path, remote: str) -> bool:
 
 
 def resolve_transport(root: Path, requested: str, remote: str, branch: str) -> str:
-    """Resolve auto transport without unsafe network-failure fallback."""
+    """Resolve auto transport without unsafe network-failure fallback.""
     if os.environ.get("UOS_INTERNAL_LOCAL") == "1":
         return "local"
     requested = (requested or "auto").lower()
@@ -161,6 +163,27 @@ def _declared_task_outputs(snapshot: Path, task_id: str) -> list[str]:
                 if row.get("id") == task_id:
                     return [_safe_rel(item) for item in (row.get("output") or "").split(";") if item.strip()]
     raise CanonicalRunError(f"unknown task: {task_id}")
+
+
+def _task_project(snapshot: Path, task_id: str) -> str:
+    if not task_id:
+        return ""
+    base = snapshot / "orchestration/projects"
+    if not base.exists():
+        return ""
+    for catalog in sorted(base.glob("*/TASK_CATALOG.csv")):
+        with catalog.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("id") == task_id:
+                    return str(row.get("project_id") or "")
+    return ""
+
+
+def _claim_project(snapshot: Path, local_argv: list[str]) -> str:
+    project = option_value(local_argv, "--project")
+    if project:
+        return project
+    return _task_project(snapshot, option_value(local_argv, "--task"))
 
 
 def _task_outputs(snapshot: Path, task_id: str) -> list[str]:
@@ -305,6 +328,9 @@ def _warmup_serial_block(snapshot: Path, local_argv: list[str]) -> subprocess.Co
     policy = load_policy(snapshot)
     if not policy["enabled"] or policy["warmup"] <= 0:
         return None
+    project = _claim_project(snapshot, local_argv)
+    if project_operator_warmup_satisfied(snapshot, project):
+        return None
     events = _epoch_events(snapshot, int(policy["rule_epoch"]))
     accepted = [
         item for item in events
@@ -344,7 +370,7 @@ def _warmup_serial_block(snapshot: Path, local_argv: list[str]) -> subprocess.Co
 def _quality_blocked_proc(local_argv: list[str], snapshot: Path) -> subprocess.CompletedProcess[str] | None:
     if not local_argv or local_argv[0] != "claim":
         return None
-    project = option_value(local_argv, "--project")
+    project = _claim_project(snapshot, local_argv)
     task_id = option_value(local_argv, "--task")
     packet = claim_block_packet(snapshot, project, task_id)
     if packet is not None:
