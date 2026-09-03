@@ -224,6 +224,19 @@ def _write_grant(path: Path, values: dict[str, object]) -> None:
     path.write_text("".join(f"{key}: {value}\n" for key, value in values.items()), encoding="utf-8")
 
 
+
+def _ownership_git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    return hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
+
+
+def _write_immutable_request(path: Path, values: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        raise CanonicalRunError(f"immutable Claim Request already exists: {path}")
+    path.write_text("".join(f"{key}: {value}\n" for key, value in values.items()), encoding="utf-8")
+
+
 def _grant_integrity_block(snapshot: Path, local_argv: list[str]) -> subprocess.CompletedProcess[str] | None:
     """Fail closed for new Grant-backed renew/complete; allow legacy locks."""
     if not local_argv or local_argv[0] not in {"renew", "complete"}:
@@ -279,6 +292,8 @@ def _decorate_claim_grant(
     snapshot: Path,
     local_argv: list[str],
     execution_ack: str,
+    prior_lock: dict[str, str] | None = None,
+    prior_lock_blob_sha: str = "",
 ) -> subprocess.CompletedProcess[str]:
     """Create immutable Grant and decorate Lock in the same canonical Claim tree."""
     if not local_argv or local_argv[0] != "claim" or proc.returncode != 0:
@@ -307,11 +322,50 @@ def _decorate_claim_grant(
     suffix = token[:12]
     request_id = f"REQ-{task_id}-G{generation}-{suffix}"
     grant_id = f"GRANT-{task_id}-G{generation}-{suffix}"
+    request_rel = f"coordination/claim_requests/{agent_id}/{request_id}.request"
+    request_path = snapshot / request_rel
     grant_rel = f"coordination/claim_grants/{agent_id}/{request_id}.grant"
     grant_path = snapshot / grant_rel
     claim_rel = f"coordination/claims/{task_id}.lock"
     done_rel = f"coordination/completed/{task_id}.done"
     authority = "UOS_CANONICAL_RUNNER_GRANT_V1"
+    generation_int = int(generation)
+    claim_mode = "RECLAIM" if generation_int > 1 else "CREATE"
+    previous = prior_lock or {}
+    if claim_mode == "RECLAIM":
+        previous_generation = int(previous.get("LeaseGeneration") or 0)
+        if not previous or previous_generation != generation_int - 1:
+            return subprocess.CompletedProcess(
+                proc.args, 2, "",
+                "UOS_GRANT_ERROR: reclaim generation lacks exact prior canonical lock provenance\n",
+            )
+        if not prior_lock_blob_sha:
+            return subprocess.CompletedProcess(
+                proc.args, 2, "",
+                "UOS_GRANT_ERROR: reclaim missing prior lock Git blob SHA\n",
+            )
+
+    request = {
+        "Schema": "UOS_CLAIM_REQUEST_V1",
+        "Status": "PROCESSED",
+        "RequestID": request_id,
+        "AgentID": agent_id,
+        "CanonicalID": task_id,
+        "ProjectID": packet.get("ProjectID", lock.get("ProjectID", "")),
+        "RequestedAt": packet.get("ClaimedAt", lock.get("ClaimedAt", "")),
+        "Mode": claim_mode,
+        "ExecutionEpoch": execution_ack,
+        "LeaseMinutes": option_value(local_argv, "--lease-minutes") or "90",
+        "ExpectedPriorLockGitBlobSHA": prior_lock_blob_sha if claim_mode == "RECLAIM" else "",
+        "ExpectedPriorAgentID": previous.get("AgentID", "") if claim_mode == "RECLAIM" else "",
+        "ExpectedPriorLeaseGeneration": previous.get("LeaseGeneration", "") if claim_mode == "RECLAIM" else "",
+        "ExpectedPriorLeaseToken": previous.get("LeaseToken", "") if claim_mode == "RECLAIM" else "",
+        "Decision": "GRANTED",
+        "GrantID": grant_id,
+        "GrantPath": grant_rel,
+        "ClaimPath": claim_rel,
+    }
+    _write_immutable_request(request_path, request)
     grant = {
         "Schema": "UOS_CLAIM_GRANT_V1",
         "Status": "GRANTED",
@@ -324,7 +378,9 @@ def _decorate_claim_grant(
         "ClaimPath": claim_rel,
         "DonePath": done_rel,
         "GrantPath": grant_rel,
+        "RequestPath": request_rel,
         "ClaimAuthority": authority,
+        "ClaimMode": claim_mode,
         "LeaseGeneration": generation,
         "LeaseToken": token,
         "LeaseExpiresAt": packet.get("LeaseExpiresAt", lock.get("LeaseExpiresAt", "")),
@@ -335,16 +391,33 @@ def _decorate_claim_grant(
         "Acceptance": packet.get("Acceptance", ""),
         "Ownership": "ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_GRANT",
         "OwnershipCheckpoint": f"AgentID={agent_id};Generation={generation};Token={token}",
+        "PreviousAgentID": previous.get("AgentID", "") if claim_mode == "RECLAIM" else "",
+        "PreviousLeaseGeneration": previous.get("LeaseGeneration", "") if claim_mode == "RECLAIM" else "",
+        "PreviousLeaseToken": previous.get("LeaseToken", "") if claim_mode == "RECLAIM" else "",
+        "PreviousGrantID": previous.get("GrantID", "") if claim_mode == "RECLAIM" else "",
+        "PreviousGrantPath": previous.get("GrantPath", "") if claim_mode == "RECLAIM" else "",
+        "ReclaimedFromLockGitBlobSHA": prior_lock_blob_sha if claim_mode == "RECLAIM" else "",
     }
     _write_grant(grant_path, grant)
     _update_kv(lock_path, {
         "ClaimAuthority": authority,
         "GrantID": grant_id,
         "GrantPath": grant_rel,
+        "RequestPath": request_rel,
+        "ClaimMode": claim_mode,
+        "PreviousAgentID": previous.get("AgentID", "") if claim_mode == "RECLAIM" else "",
+        "PreviousLeaseGeneration": previous.get("LeaseGeneration", "") if claim_mode == "RECLAIM" else "",
+        "PreviousLeaseToken": previous.get("LeaseToken", "") if claim_mode == "RECLAIM" else "",
+        "PreviousGrantID": previous.get("GrantID", "") if claim_mode == "RECLAIM" else "",
+        "PreviousGrantPath": previous.get("GrantPath", "") if claim_mode == "RECLAIM" else "",
+        "ReclaimedFromLockGitBlobSHA": prior_lock_blob_sha if claim_mode == "RECLAIM" else "",
         "FencingRequired": "YES",
         "ExecutionEpoch": execution_ack,
     })
     packet.update({
+        "RequestID": request_id,
+        "RequestPath": request_rel,
+        "ClaimMode": claim_mode,
         "GrantID": grant_id,
         "GrantPath": grant_rel,
         "ClaimAuthority": authority,
@@ -639,6 +712,16 @@ def run_canonical(
 
             prepare_caller_artifacts(caller_root, worktree, local_argv)
 
+            prior_claim_lock: dict[str, str] | None = None
+            prior_claim_blob_sha = ""
+            if local_argv and local_argv[0] == "claim":
+                prior_task = option_value(local_argv, "--task")
+                if prior_task:
+                    prior_path = worktree / "coordination/claims" / f"{prior_task}.lock"
+                    if prior_path.exists():
+                        prior_claim_lock = _parse_kv(prior_path)
+                        prior_claim_blob_sha = _ownership_git_blob_sha(prior_path)
+
             env = os.environ.copy()
             env["UOS_INTERNAL_LOCAL"] = "1"
             env["UOS_CALLER_ROOT"] = str(caller_root)
@@ -654,7 +737,11 @@ def run_canonical(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            proc = _decorate_claim_grant(proc, worktree, local_argv, execution_ack)
+            proc = _decorate_claim_grant(
+                proc, worktree, local_argv, execution_ack,
+                prior_lock=prior_claim_lock,
+                prior_lock_blob_sha=prior_claim_blob_sha,
+            )
             proc = _quality_complete_proc(proc, worktree, local_argv)
             last_proc = proc
             if proc.returncode != 0:
