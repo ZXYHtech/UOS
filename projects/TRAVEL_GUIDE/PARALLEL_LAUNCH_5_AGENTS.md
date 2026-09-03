@@ -2,20 +2,27 @@
 
 Status: READY FOR PARALLEL CLAIMS
 
-The Work Market has been CI-verified to expose 23 READY tasks in `TRAVEL_GUIDE_DEPTH`.
+The Work Market has been CI-verified to expose the public depth tasks required for parallel execution. In addition, the generic UOS high-contention exact-Claim ingress has now passed 5/10/30-Agent distinct-task contention tests.
 
 ## Common startup rule
 
 Every Agent must:
 
-1. Work in `ZXYHtech/UOS` on latest `main`.
+1. Work in `ZXYHtech/UOS` on latest `main`. **Run `git pull --ff-only origin main` before each new sequence starts**, because Claim concurrency behavior is Kernel code and must not be taken from an old checkout.
 2. Read `projects/TRAVEL_GUIDE/AGENT_CLAIM_GUIDE.md` and the claimed row in `orchestration/projects/TRAVEL_GUIDE_DEPTH/TASK_CATALOG.csv`.
 3. Claim through canonical UOS; never edit a task before Claim succeeds.
-4. Preserve the returned `LeaseToken`.
-5. Produce only the declared output for that task unless the task explicitly requires supporting files.
-6. Complete through `tools/uos.py complete` using the same Agent ID and LeaseToken; do not manufacture `.done` files.
-7. After successful completion, claim the next task in its assigned sequence.
-8. Keep `TRAVEL_GUIDE_DEPTH` public-only: no exact private origin/date, relationship details, gift staging, or private chat scripts.
+4. For this project use `projects/TRAVEL_GUIDE/tools/claim_depth.py`. It is now a thin wrapper around generic `tools/high_contention_claim.py`; do not recreate project-local retry/lock logic.
+5. Preserve the returned `LeaseToken`.
+6. Produce only the declared output for that task unless the task explicitly requires supporting files.
+7. Complete through `tools/uos.py complete` using the same Agent ID and LeaseToken; do not manufacture `.done` files.
+8. After successful completion, pull latest `main`, then claim the next task in its assigned sequence.
+9. Keep `TRAVEL_GUIDE_DEPTH` public-only: no exact private origin/date, relationship details, gift staging, or private chat scripts.
+
+### High-contention behavior now provided by Kernel
+
+For explicit tasks the generic ingress performs bounded startup jitter, read-only latest-canonical compatibility/lock preflight, and then delegates to the normal UOS latest-canonical CAS transaction. If a valid owner already exists it returns local `NO_MATCH` with no canonical write. Under burst contention it uses a larger CAS retry budget. Ownership remains valid only after `GRANTED` plus the matching canonical lock.
+
+Do **not** add another sleep/retry loop inside individual Agent prompts unless a future Kernel incident specifically requires it.
 
 ## Agent 1 — transit and map facts
 
