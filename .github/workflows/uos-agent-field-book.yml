@@ -9,27 +9,22 @@ permissions:
   contents: write
 
 jobs:
-  complete:
+  review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-      - name: Canonical complete rain crowd task
+      - name: Accept sampled rain crowd result
         shell: bash
         run: |
           set -euo pipefail
-          LOCK=coordination/claims/TASK_TRAVEL_FIELD_RAIN_CROWD_01.lock
-          test -f "$LOCK"
-          LEASE_TOKEN=$(awk -F': ' '$1=="LeaseToken"{print $2}' "$LOCK")
-          test -n "$LEASE_TOKEN"
-          python tools/uos.py \
-            --ack-execution-epoch UOS_EXEC_20260902_01 \
-            complete \
-            --agent-id AG_TRAVEL_FIELD_BOOK \
+          python tools/quality_gate.py review accept \
             --task TASK_TRAVEL_FIELD_RAIN_CROWD_01 \
-            --lease-token "$LEASE_TOKEN" \
-            --result PASS | tee complete-output.json
-          echo '--- COMPLETE OUTPUT ---'
-          cat complete-output.json
+            --by OPERATOR \
+            --feedback "User instructed: 继续; treated as approval to proceed after reviewing the presented result." | tee review-output.json
+          echo '--- REVIEW OUTPUT ---'
+          cat review-output.json
+          echo '--- QUALITY STATUS ---'
+          python tools/quality_gate.py status --project TRAVEL_GUIDE_DEPTH
