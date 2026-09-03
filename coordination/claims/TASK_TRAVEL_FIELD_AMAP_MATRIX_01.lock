@@ -1,9 +1,22 @@
 Schema: UOS_CLAIM_V1
 CanonicalID: TASK_TRAVEL_FIELD_AMAP_MATRIX_01
 ProjectID: TRAVEL_GUIDE_DEPTH
-AgentID: AG_TRAVEL_TRANSIT_MAP
-LeaseGeneration: 1
-LeaseToken: b4255f096cb15e87d6b591b31ccf3e3d
-ClaimedAt: 2026-09-03T02:36:34Z
-LeaseExpiresAt: 2026-09-03T04:06:34Z
-FencingToken: 1:b4255f096cb15e87d6b591b31ccf3e3d
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+LeaseGeneration: 2
+LeaseToken: d6e65d51aaa93c01d87cfcfe268e8856
+ClaimedAt: 2026-09-03T04:31:09Z
+LeaseExpiresAt: 2026-09-03T06:01:09Z
+FencingToken: 2:d6e65d51aaa93c01d87cfcfe268e8856
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+RequestPath: coordination/claim_requests/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_FIELD_AMAP_MATRIX_01-G2-d6e65d51aaa9.request
+GrantID: GRANT-TASK_TRAVEL_FIELD_AMAP_MATRIX_01-G2-d6e65d51aaa9
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_FIELD_AMAP_MATRIX_01-G2-d6e65d51aaa9.grant
+ClaimMode: RECLAIM
+PreviousAgentID: AG_TRAVEL_TRANSIT_MAP
+PreviousLeaseGeneration: 1
+PreviousLeaseToken: b4255f096cb15e87d6b591b31ccf3e3d
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 40a803fbe1cc07e58d23338f5e7b35a287002b66
+FencingRequired: YES
+ExecutionEpoch: UOS_EXEC_20260902_01
