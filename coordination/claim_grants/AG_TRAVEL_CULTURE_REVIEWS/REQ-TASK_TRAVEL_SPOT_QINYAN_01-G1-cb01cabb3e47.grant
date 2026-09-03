@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_SPOT_QINYAN_01-G1-cb01cabb3e47
+GrantID: GRANT-TASK_TRAVEL_SPOT_QINYAN_01-G1-cb01cabb3e47
+CanonicalID: TASK_TRAVEL_SPOT_QINYAN_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+GrantedAt: 2026-09-03T03:52:00Z
+ClaimPath: coordination/claims/TASK_TRAVEL_SPOT_QINYAN_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_SPOT_QINYAN_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_QINYAN_01-G1-cb01cabb3e47.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_QINYAN_01-G1-cb01cabb3e47.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: cb01cabb3e47138986ec09b6ed358b4b
+LeaseExpiresAt: 2026-09-03T05:22:00Z
+FencingToken: 1:cb01cabb3e47138986ec09b6ed358b4b
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/MAP_VALIDATION_POLICY.md;projects/TRAVEL_GUIDE/research/HISTORY_CULTURE.md
+Output: projects/TRAVEL_GUIDE/research/book/spots/QINYAN.md
+Acceptance: Verify tower and Gate 6 as separate concepts; current access evidence; high-to-low route logic; dwell; closure fallback; dated sources
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_CULTURE_REVIEWS;Generation=1;Token=cb01cabb3e47138986ec09b6ed358b4b
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
