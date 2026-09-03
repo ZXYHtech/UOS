@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Scan UOS Claim/Grant/Done ownership integrity.
+"""Scan UOS Claim/Request/Grant/Done ownership integrity.
 
-Phase-2 compatibility rules:
-- legacy active locks without GrantPath remain valid and are reported as LEGACY_ACTIVE;
-- new grant-backed locks must match immutable Grant owner/generation/token/GrantID;
-- completed tasks may retain immutable Grants but must not retain an active lock;
+Compatibility model:
+- legacy active locks without GrantPath remain valid as LEGACY_ACTIVE;
+- Phase-2 Grant-backed claims without RequestPath remain valid;
+- Phase-3 claims validate Request -> Grant -> Lock and RECLAIM provenance;
+- completed tasks may retain immutable Request/Grant history but no active lock;
 - stale leases are RECLAIMABLE, not automatically corrupt;
-- safe repair is intentionally narrow: remove a lock only when the task is already
-  complete, or restore a missing generation-1 lock from a non-stale Grant.
+- safe repair is intentionally narrow and never invents reclaim provenance.
 """
 from __future__ import annotations
 
@@ -93,6 +93,92 @@ def write_kv(path: Path, values: Dict[str, str]) -> None:
     path.write_text("".join(f"{k}: {v}\n" for k, v in values.items()), encoding="utf-8")
 
 
+def _phase3_chain_errors(
+    root: Path,
+    lock: Dict[str, str],
+    grant: Dict[str, str],
+    grant_rel: str,
+    grants_by_task: Dict[str, List[tuple[Path, Dict[str, str]]]],
+) -> List[str]:
+    """Return Request/Grant/reclaim-chain errors for Phase-3 records only."""
+    errors: List[str] = []
+    cid = grant.get("CanonicalID", "")
+    generation = intv(grant.get("LeaseGeneration", "0"), 0)
+    request_rel = safe_rel(grant.get("RequestPath", ""))
+    claim_mode = (grant.get("ClaimMode") or "").upper()
+
+    # Phase-2 Grants intentionally have no RequestPath/ClaimMode.
+    if not request_rel and not claim_mode:
+        return errors
+
+    if not request_rel:
+        return ["Phase3GrantMissingRequestPath"]
+    request_path = root / request_rel
+    request = parse_kv(request_path)
+    if not request:
+        return ["RequestPathMissing"]
+
+    request_checks = {
+        "RequestCanonicalID": (request.get("CanonicalID", ""), cid),
+        "RequestAgentID": (request.get("AgentID", ""), grant.get("AgentID", "")),
+        "RequestGrantID": (request.get("GrantID", ""), grant.get("GrantID", "")),
+        "RequestGrantPath": (request.get("GrantPath", ""), grant_rel),
+        "RequestClaimPath": (request.get("ClaimPath", ""), grant.get("ClaimPath", "")),
+        "RequestMode": ((request.get("Mode") or "").upper(), claim_mode),
+    }
+    errors.extend(name for name, pair in request_checks.items() if not pair[1] or pair[0] != pair[1])
+
+    if generation <= 1:
+        if claim_mode != "CREATE":
+            errors.append("Generation1MustBeCREATE")
+        return errors
+
+    if claim_mode != "RECLAIM":
+        errors.append("HigherGenerationMustBeRECLAIM")
+    previous_generation = intv(grant.get("PreviousLeaseGeneration", "0"), 0)
+    if previous_generation != generation - 1:
+        errors.append("PreviousLeaseGenerationNotPredecessor")
+    if not grant.get("PreviousAgentID"):
+        errors.append("MissingPreviousAgentID")
+    if not grant.get("PreviousLeaseToken"):
+        errors.append("MissingPreviousLeaseToken")
+    prior_blob = grant.get("ReclaimedFromLockGitBlobSHA", "")
+    if len(prior_blob) != 40:
+        errors.append("MissingOrInvalidPriorLockGitBlobSHA")
+    if request.get("ExpectedPriorLockGitBlobSHA", "") != prior_blob:
+        errors.append("RequestPriorBlobMismatch")
+    if request.get("ExpectedPriorAgentID", "") != grant.get("PreviousAgentID", ""):
+        errors.append("RequestPreviousAgentMismatch")
+    if request.get("ExpectedPriorLeaseGeneration", "") != grant.get("PreviousLeaseGeneration", ""):
+        errors.append("RequestPreviousGenerationMismatch")
+    if request.get("ExpectedPriorLeaseToken", "") != grant.get("PreviousLeaseToken", ""):
+        errors.append("RequestPreviousTokenMismatch")
+
+    # Lock must carry the same reclaim chain as the immutable Grant.
+    for field in (
+        "PreviousAgentID", "PreviousLeaseGeneration", "PreviousLeaseToken",
+        "PreviousGrantID", "PreviousGrantPath", "ReclaimedFromLockGitBlobSHA",
+    ):
+        if lock.get(field, "") != grant.get(field, ""):
+            errors.append("LockGrant" + field + "Mismatch")
+
+    # If predecessor was already Grant-backed, successor must explicitly point to it.
+    prior_items = grants_by_task.get(cid, [])
+    predecessor: tuple[Path, Dict[str, str]] | None = None
+    for path, old in prior_items:
+        if intv(old.get("LeaseGeneration", "0"), 0) == generation - 1:
+            predecessor = (path, old)
+            break
+    if predecessor is not None:
+        prior_path, prior_grant = predecessor
+        prior_rel = prior_path.relative_to(root).as_posix()
+        if grant.get("PreviousGrantID", "") != prior_grant.get("GrantID", ""):
+            errors.append("PreviousGrantIDMismatch")
+        if grant.get("PreviousGrantPath", "") != prior_rel:
+            errors.append("PreviousGrantPathMismatch")
+    return errors
+
+
 def scan(root: Path, *, repair_safe: bool = False) -> tuple[List[Dict[str, str]], int, int]:
     claims = root / "coordination/claims"
     done = root / "coordination/completed"
@@ -144,8 +230,10 @@ def scan(root: Path, *, repair_safe: bool = False) -> tuple[List[Dict[str, str]]
                     "GrantID": (grant_id, grant.get("GrantID", "")),
                 }
                 bad = [k for k, pair in checks.items() if pair[0] != pair[1]]
-                if bad:
-                    status, reason = "VIOLATION", "lock/grant mismatch: " + ",".join(bad)
+                chain_bad = _phase3_chain_errors(root, lock, grant, grant_rel, grants_by_task)
+                if bad or chain_bad:
+                    status = "VIOLATION"
+                    reason = "ownership mismatch: " + ",".join(bad + chain_bad)
                     violations += 1
                 elif stale(lock):
                     status, reason = "RECLAIMABLE", "grant-backed lease is stale and may be fenced by a higher generation"
@@ -207,7 +295,7 @@ def scan(root: Path, *, repair_safe: bool = False) -> tuple[List[Dict[str, str]]
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Scan UOS Claim/Grant/Done ownership integrity")
+    ap = argparse.ArgumentParser(description="Scan UOS Claim/Request/Grant/Done ownership integrity")
     ap.add_argument("--repair-safe", action="store_true", help="apply only bounded non-destructive ownership repairs")
     ap.add_argument("--fail-on-violation", action="store_true")
     args = ap.parse_args()
@@ -220,7 +308,7 @@ def main() -> int:
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader(); writer.writerows(rows)
     print(f"claim integrity: rows={len(rows)} violations_seen={violations} repaired={repaired} output={out.relative_to(root)}")
-    return 2 if args.fail_on_violation and violations > repaired else 0
+    return 2 if args.fail_on-violation and violations > repaired else 0
 
 
 if __name__ == "__main__":
