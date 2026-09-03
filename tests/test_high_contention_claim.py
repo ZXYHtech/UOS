@@ -193,7 +193,7 @@ class HighContentionClaimTests(unittest.TestCase):
                 self.assertTrue(meta.get("GrantPath"))
                 self.assertTrue(meta.get("RequestPath"))
                 self.assertEqual(meta.get("ClaimMode"), "CREATE")
-                self.assertEqual(meta.get("ClaimAuthority"), "UOS_CANONICAL_RUNNER_GRANT_V1")
+                self.assertEqual(meta.get("ClaimAuthority"), "UOS_CLAIM_BROKER_V2")
 
                 grant_path = check / meta["GrantPath"]
                 request_path = check / meta["RequestPath"]
@@ -211,6 +211,7 @@ class HighContentionClaimTests(unittest.TestCase):
                 self.assertEqual(grant.get("GrantID"), meta.get("GrantID"))
                 self.assertEqual(grant.get("RequestPath"), meta.get("RequestPath"))
                 self.assertEqual(grant.get("ClaimMode"), "CREATE")
+                self.assertEqual(grant.get("ClaimAuthority"), "UOS_CLAIM_BROKER_V2")
 
                 self.assertEqual(request.get("Schema"), "UOS_CLAIM_REQUEST_V1")
                 self.assertEqual(request.get("Status"), "PROCESSED")
