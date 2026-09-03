@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c
+GrantID: GRANT-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c
+CanonicalID: TASK_TRAVEL_SPOT_OLDCITY_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+GrantedAt: 2026-09-03T03:56:30Z
+ClaimPath: coordination/claims/TASK_TRAVEL_SPOT_OLDCITY_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_SPOT_OLDCITY_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: fcdd6211c83c9ccf84861fd56860cdac
+LeaseExpiresAt: 2026-09-03T05:26:30Z
+FencingToken: 1:fcdd6211c83c9ccf84861fd56860cdac
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md;projects/TRAVEL_GUIDE/research/FOOD.md
+Output: projects/TRAVEL_GUIDE/research/book/spots/GUANXIAN_OLD_CITY.md
+Acceptance: Cover city-water relationship; useful streets and rest logic; dwell bands by scheme; commercialisation feedback; AMap link; dated sources
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_CULTURE_REVIEWS;Generation=1;Token=fcdd6211c83c9ccf84861fd56860cdac
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 

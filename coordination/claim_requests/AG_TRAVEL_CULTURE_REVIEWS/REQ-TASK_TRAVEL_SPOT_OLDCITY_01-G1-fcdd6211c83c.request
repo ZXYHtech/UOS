@@ -1,0 +1,18 @@
+Schema: UOS_CLAIM_REQUEST_V1
+Status: PROCESSED
+RequestID: REQ-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+CanonicalID: TASK_TRAVEL_SPOT_OLDCITY_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+RequestedAt: 2026-09-03T03:56:30Z
+Mode: CREATE
+ExecutionEpoch: UOS_EXEC_20260902_01
+LeaseMinutes: 90
+ExpectedPriorLockGitBlobSHA: 
+ExpectedPriorAgentID: 
+ExpectedPriorLeaseGeneration: 
+ExpectedPriorLeaseToken: 
+Decision: GRANTED
+GrantID: GRANT-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_OLDCITY_01-G1-fcdd6211c83c.grant
+ClaimPath: coordination/claims/TASK_TRAVEL_SPOT_OLDCITY_01.lock
