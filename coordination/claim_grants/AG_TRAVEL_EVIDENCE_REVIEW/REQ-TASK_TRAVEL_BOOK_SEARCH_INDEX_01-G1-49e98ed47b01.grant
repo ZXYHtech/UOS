@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01
+GrantID: GRANT-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01
+CanonicalID: TASK_TRAVEL_BOOK_SEARCH_INDEX_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+GrantedAt: 2026-09-03T04:37:20Z
+ClaimPath: coordination/claims/TASK_TRAVEL_BOOK_SEARCH_INDEX_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_BOOK_SEARCH_INDEX_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: 49e98ed47b0147084b668e19e286e43a
+LeaseExpiresAt: 2026-09-03T06:07:20Z
+FencingToken: 1:49e98ed47b0147084b668e19e286e43a
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/research/book/
+Output: projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json
+Acceptance: Index all depth dossiers by title; aliases; tags; category; summary; AMap capability; source freshness; deterministic JSON schema
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_EVIDENCE_REVIEW;Generation=1;Token=49e98ed47b0147084b668e19e286e43a
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 

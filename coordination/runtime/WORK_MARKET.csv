@@ -1,4 +1,3 @@
 canonical_id,project_id,priority,role,title,workstream,size_class,min_capability_tier,context_class,tool_requirements,output
 TASK_TRAVEL_GUIDE_INTAKE_01,TRAVEL_GUIDE,1,ARCHITECT,Formalize public requirements and encrypted private context,travel_intake,S,3,M,web,projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md
 TASK_UOS_STANDALONE_KERNEL_EXPORT_01,UOS_CORE,1,KERNEL_MAINTAINER,Extract generic UOS kernel from AI_book into standalone UOS,kernel_export,XL,4,XL,git;python,projects/UOS_CORE/output/TASK_UOS_STANDALONE_KERNEL_EXPORT_01.md
-TASK_TRAVEL_BOOK_SEARCH_INDEX_01,TRAVEL_GUIDE_DEPTH,5,ANALYST,Build searchable book index,book_search,M,3,L,python,projects/TRAVEL_GUIDE/web/BOOK_SEARCH_INDEX.json

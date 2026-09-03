@@ -1,0 +1,18 @@
+Schema: UOS_CLAIM_REQUEST_V1
+Status: PROCESSED
+RequestID: REQ-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+CanonicalID: TASK_TRAVEL_BOOK_SEARCH_INDEX_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+RequestedAt: 2026-09-03T04:37:20Z
+Mode: CREATE
+ExecutionEpoch: UOS_EXEC_20260902_01
+LeaseMinutes: 90
+ExpectedPriorLockGitBlobSHA: 
+ExpectedPriorAgentID: 
+ExpectedPriorLeaseGeneration: 
+ExpectedPriorLeaseToken: 
+Decision: GRANTED
+GrantID: GRANT-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_BOOK_SEARCH_INDEX_01-G1-49e98ed47b01.grant
+ClaimPath: coordination/claims/TASK_TRAVEL_BOOK_SEARCH_INDEX_01.lock
