@@ -140,7 +140,6 @@ class HighContentionClaimTests(unittest.TestCase):
                 workers.append(worker)
 
             env = os.environ.copy()
-            # Keep production semantics (bounded jitter) while making local CI fast.
             env["UOS_EXACT_CLAIM_JITTER_MS"] = "1800"
             procs = []
             for index, worker in enumerate(workers):
@@ -177,10 +176,14 @@ class HighContentionClaimTests(unittest.TestCase):
             clone(remote, check)
             locks = sorted((check / "coordination/claims").glob("TASK_*.lock"))
             grants = sorted((check / "coordination/claim_grants").glob("*/*.grant"))
+            requests = sorted((check / "coordination/claim_requests").glob("*/*.request"))
             self.assertEqual(len(locks), scale)
             self.assertEqual(len(grants), scale)
+            self.assertEqual(len(requests), scale)
+
             owners = set()
             grant_paths = set()
+            request_paths = set()
             for path in locks:
                 meta = parse_kv(path)
                 owners.add(meta.get("AgentID"))
@@ -188,18 +191,39 @@ class HighContentionClaimTests(unittest.TestCase):
                 self.assertTrue(meta.get("LeaseGeneration"))
                 self.assertTrue(meta.get("GrantID"))
                 self.assertTrue(meta.get("GrantPath"))
+                self.assertTrue(meta.get("RequestPath"))
+                self.assertEqual(meta.get("ClaimMode"), "CREATE")
                 self.assertEqual(meta.get("ClaimAuthority"), "UOS_CANONICAL_RUNNER_GRANT_V1")
+
                 grant_path = check / meta["GrantPath"]
+                request_path = check / meta["RequestPath"]
                 self.assertTrue(grant_path.exists(), meta)
+                self.assertTrue(request_path.exists(), meta)
                 grant_paths.add(grant_path.resolve())
+                request_paths.add(request_path.resolve())
+
                 grant = parse_kv(grant_path)
+                request = parse_kv(request_path)
                 self.assertEqual(grant.get("CanonicalID"), meta.get("CanonicalID"))
                 self.assertEqual(grant.get("AgentID"), meta.get("AgentID"))
                 self.assertEqual(grant.get("LeaseGeneration"), meta.get("LeaseGeneration"))
                 self.assertEqual(grant.get("LeaseToken"), meta.get("LeaseToken"))
                 self.assertEqual(grant.get("GrantID"), meta.get("GrantID"))
+                self.assertEqual(grant.get("RequestPath"), meta.get("RequestPath"))
+                self.assertEqual(grant.get("ClaimMode"), "CREATE")
+
+                self.assertEqual(request.get("Schema"), "UOS_CLAIM_REQUEST_V1")
+                self.assertEqual(request.get("Status"), "PROCESSED")
+                self.assertEqual(request.get("Mode"), "CREATE")
+                self.assertEqual(request.get("CanonicalID"), meta.get("CanonicalID"))
+                self.assertEqual(request.get("AgentID"), meta.get("AgentID"))
+                self.assertEqual(request.get("GrantID"), meta.get("GrantID"))
+                self.assertEqual(request.get("GrantPath"), meta.get("GrantPath"))
+                self.assertEqual(request.get("ClaimPath"), f"coordination/claims/{meta.get('CanonicalID')}.lock")
+
             self.assertEqual(len(owners), scale)
             self.assertEqual(len(grant_paths), scale)
+            self.assertEqual(len(request_paths), scale)
 
 
 if __name__ == "__main__":
