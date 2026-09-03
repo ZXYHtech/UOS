@@ -1,0 +1,76 @@
+name: UOS phase4 claim broker v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/claim_broker_v2.py'
+      - 'tools/phase4_claim_broker_v2_patch.py'
+      - 'tools/phase4_test_fixture_patch.py'
+      - 'tests/test_claim_broker_v2.py'
+      - '.github/workflows/uos-phase4-claim-broker-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Integrate Broker V2
+        run: |
+          python tools/phase4_claim_broker_v2_patch.py
+          python tools/phase4_test_fixture_patch.py
+      - name: Compile kernel
+        run: python -m py_compile tools/uos.py tools/claim_broker_v2.py tools/canonical_runner.py tools/claim_integrity_scan.py tools/high_contention_claim.py
+      - name: Run Broker and lifecycle regressions
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            python -m unittest tests.test_claim_broker_v2 -v
+            python -m unittest tests.test_claim_request_reclaim -v
+            python -m unittest tests.test_claim_grant_integrity -v
+            python -m unittest tests.test_git_cas_lifecycle -v
+            python -m unittest tests.test_execution_epoch_git_cas -v
+            python -m unittest tests.test_quality_warmup_serial -v
+            python -m unittest tests.test_project_warmup_override -v
+          } 2>&1 | tee phase4-test.log
+      - name: Upload Phase-4 log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-test-log
+          path: phase4-test.log
+      - name: Fail if tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          cat phase4-test.log
+          exit 1
+      - name: Diff check
+        run: git diff --check
+      - name: Commit tested Broker integration
+        run: |
+          if git diff --quiet; then
+            echo 'No integration patch needed.'
+            exit 0
+          fi
+          git config user.name 'UOS Kernel Bot'
+          git config user.email 'uos-kernel@example.invalid'
+          git add tools/uos.py tools/canonical_runner.py tests/
+          git commit -m 'feat: route ownership through Claim Broker V2'
+          for n in 1 2 3 4 5 6 7 8; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((n * 2))
+          done
+          echo 'Failed to publish tested Broker V2 integration' >&2
+          exit 1
