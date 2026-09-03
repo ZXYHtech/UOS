@@ -15,6 +15,7 @@ TOOLS = [
     "uos.py",
     "claim_broker_v2.py",
     "claim_telemetry.py",
+    "completion_outbox.py",
     "canonical_runner.py",
     "canonical_publish.py",
     "quality_gate.py",

@@ -56,6 +56,11 @@ try:
 except ModuleNotFoundError:
     from tools.claim_telemetry import decorate_claim_result, record_claim_candidate
 
+try:
+    from completion_outbox import CompletionOutboxError, stage_completion_candidate
+except ModuleNotFoundError:
+    from tools.completion_outbox import CompletionOutboxError, stage_completion_candidate
+
 
 class CanonicalRunError(RuntimeError):
     pass
@@ -723,6 +728,16 @@ def run_canonical(
 
             prepare_caller_artifacts(caller_root, worktree, local_argv)
 
+            completion_owner_lock: dict[str, str] | None = None
+            completion_owner_lock_blob_sha = ""
+            if local_argv and local_argv[0] == "complete":
+                completion_task = option_value(local_argv, "--task")
+                if completion_task:
+                    completion_lock_path = worktree / "coordination/claims" / f"{completion_task}.lock"
+                    if completion_lock_path.exists():
+                        completion_owner_lock = _parse_kv(completion_lock_path)
+                        completion_owner_lock_blob_sha = _ownership_git_blob_sha(completion_lock_path)
+
             prior_claim_lock: dict[str, str] | None = None
             prior_claim_blob_sha = ""
             if local_argv and local_argv[0] == "claim":
@@ -803,6 +818,44 @@ def run_canonical(
                     f"CANONICAL_PUSH_FAILED: {push.stderr.strip() or push.stdout.strip()}"
                 )
             if attempt == retries:
+                if local_argv and local_argv[0] == "complete" and completion_owner_lock:
+                    task_id = option_value(local_argv, "--task")
+                    if not task_id:
+                        raise CanonicalRunError("complete fallback lost task id")
+                    try:
+                        staged = stage_completion_candidate(
+                            caller_root,
+                            candidate_root=worktree,
+                            base=base,
+                            candidate_commit=candidate,
+                            task_id=task_id,
+                            owner_lock=completion_owner_lock,
+                            owner_lock_blob_sha=completion_owner_lock_blob_sha,
+                            remote=remote,
+                            branch=branch,
+                        )
+                    except CompletionOutboxError as exc:
+                        raise CanonicalRunError(f"COMPLETION_OUTBOX_STAGE_FAILED: {exc}") from exc
+                    original: object = proc.stdout.strip()
+                    try:
+                        original = json.loads(proc.stdout)
+                    except Exception:
+                        pass
+                    packet = {
+                        "status": "COMPLETION_STAGED",
+                        "task": task_id,
+                        "canonical_done": False,
+                        "reason": "DIRECT_MAIN_REF_RACE_RETRY_EXHAUSTED",
+                        "outbox": staged,
+                        "completion_candidate": original,
+                        "instruction": "Do not treat the task as Done and do not claim unrelated next work until the outbox candidate is canonically ingested. Run `python tools/uos.py outbox ingest` or wait for another Agent to perform mechanical ingest.",
+                    }
+                    return subprocess.CompletedProcess(
+                        args=proc.args,
+                        returncode=7,
+                        stdout=json.dumps(packet, ensure_ascii=False, indent=2) + "\n",
+                        stderr=proc.stderr,
+                    )
                 raise CanonicalRunError("CANONICAL_REF_RACE_RETRY_EXHAUSTED")
             time.sleep(random.uniform(0.02, 0.08) * attempt)
         finally:

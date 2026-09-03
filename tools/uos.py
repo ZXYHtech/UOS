@@ -547,6 +547,42 @@ def command_reconcile(_args: argparse.Namespace) -> int:
     return 0
 
 
+
+def command_outbox_status(args: argparse.Namespace) -> int:
+    root = repo_root()
+    try:
+        from completion_outbox import status as outbox_status
+    except ModuleNotFoundError:
+        from tools.completion_outbox import status as outbox_status
+    payload = outbox_status(root, remote=args.remote, branch=args.target_branch)
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
+
+
+def command_outbox_ingest(args: argparse.Namespace) -> int:
+    root = repo_root()
+    # Ingest can complete tasks and delete canonical locks, so it carries the
+    # same stale-agent ExecutionEpoch requirement as `complete`.
+    try:
+        enforce_execution_epoch(root, "complete", args.ack_execution_epoch)
+    except ControlExtensionError as exc:
+        raise UOSError(str(exc)) from exc
+    try:
+        from completion_outbox import ingest as outbox_ingest
+    except ModuleNotFoundError:
+        from tools.completion_outbox import ingest as outbox_ingest
+    payload = outbox_ingest(
+        root,
+        remote=args.remote,
+        branch=args.target_branch,
+        max_batch=args.max_batch,
+        retries=args.ingest_retries,
+        dry_run=args.dry_run,
+    )
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="uos")
     parser.add_argument(
@@ -622,6 +658,16 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--result", default="PASS")
     item.add_argument("--allow-missing-output", action="store_true")
     item.set_defaults(func=command_complete)
+
+    outbox = subs.add_parser("outbox")
+    outbox_subs = outbox.add_subparsers(dest="outbox_command", required=True)
+    item = outbox_subs.add_parser("status")
+    item.set_defaults(func=command_outbox_status)
+    item = outbox_subs.add_parser("ingest")
+    item.add_argument("--max-batch", type=int, default=16)
+    item.add_argument("--ingest-retries", type=int, default=8)
+    item.add_argument("--dry-run", action="store_true")
+    item.set_defaults(func=command_outbox_ingest)
     return parser
 
 
@@ -633,6 +679,9 @@ def main() -> int:
             enforce_execution_epoch(root, args.command, args.ack_execution_epoch)
         except ControlExtensionError as exc:
             raise UOSError(str(exc)) from exc
+
+        if args.command == "outbox":
+            return args.func(args)
 
         try:
             from canonical_runner import resolve_transport, run_canonical
