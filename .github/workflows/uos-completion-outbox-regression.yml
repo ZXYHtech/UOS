@@ -1,0 +1,65 @@
+name: UOS completion outbox regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/uos.py'
+      - 'tools/canonical_runner.py'
+      - 'tools/completion_outbox.py'
+      - 'tools/claim_broker_v2.py'
+      - 'tools/work_session.py'
+      - 'tests/test_completion_outbox_fallback.py'
+      - 'tests/test_completion_outbox_batch.py'
+      - 'tests/test_work_session_outbox_wait.py'
+      - '.github/workflows/uos-completion-outbox-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile current kernel
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python -m py_compile \
+            tools/uos.py \
+            tools/canonical_runner.py \
+            tools/completion_outbox.py \
+            tools/claim_broker_v2.py \
+            tools/work_session.py
+      - name: Run Outbox and Session integration regressions
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python -m unittest tests.test_completion_outbox_fallback -v
+          python -m unittest tests.test_work_session_outbox_wait -v
+
+  batch-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        scale: [2, 5, 10, 30]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run completion batch acceptance on current kernel
+        env:
+          UOS_OUTBOX_SCALE: ${{ matrix.scale }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m unittest tests.test_completion_outbox_batch -v
