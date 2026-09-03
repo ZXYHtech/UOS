@@ -31,7 +31,7 @@ TASK_TRAVEL_FINAL_AUDIT_01,TRAVEL_GUIDE,7,REVIEWER,Final factual budget privacy 
 TASK_TRAVEL_FIELD_AMAP_MATRIX_01,TRAVEL_GUIDE_DEPTH,2,ANALYST,Build AMap travel-time decision matrix,DONE,,projects/TRAVEL_GUIDE/research/book/field/AMAP_TIME_MATRIX.md
 TASK_TRAVEL_FIELD_FACILITIES_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Audit field facilities and rest services,DONE,,projects/TRAVEL_GUIDE/research/book/field/FACILITIES.md
 TASK_TRAVEL_FIELD_RAIN_CROWD_01,TRAVEL_GUIDE_DEPTH,2,PLANNER,Build rain and crowd fallback decision tree,DONE,,projects/TRAVEL_GUIDE/research/book/field/RAIN_CROWD_DECISION_TREE.md
-TASK_TRAVEL_FIELD_RETURN_RAIL_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Build return rail candidate matrix,READY,,projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md
+TASK_TRAVEL_FIELD_RETURN_RAIL_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Build return rail candidate matrix,CLAIMED,,projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md
 TASK_TRAVEL_FOOD_XIAOZHUO_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier for Courtyard Xiaozhuo,DONE,,projects/TRAVEL_GUIDE/research/book/food/COURTYARD_MEAL.md
 TASK_TRAVEL_FOOD_XIJIE_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep meal dossier for quiet old-city option,DONE,,projects/TRAVEL_GUIDE/research/book/food/QUIET_OLD_CITY_MEAL.md
 TASK_TRAVEL_FOOD_ZHAOMAI_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep snack dossier for Zhao Maimian,DONE,,projects/TRAVEL_GUIDE/research/book/food/REPRESENTATIVE_SNACK.md

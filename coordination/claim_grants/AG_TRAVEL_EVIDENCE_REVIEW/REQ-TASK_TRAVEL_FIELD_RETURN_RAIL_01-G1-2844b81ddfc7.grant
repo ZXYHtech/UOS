@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7
+GrantID: GRANT-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7
+CanonicalID: TASK_TRAVEL_FIELD_RETURN_RAIL_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+GrantedAt: 2026-09-03T04:32:59Z
+ClaimPath: coordination/claims/TASK_TRAVEL_FIELD_RETURN_RAIL_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_FIELD_RETURN_RAIL_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: 2844b81ddfc74416a282144f74ef44d3
+LeaseExpiresAt: 2026-09-03T06:02:59Z
+FencingToken: 1:2844b81ddfc74416a282144f74ef44d3
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/research/GEO_TRANSIT.md;projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md
+Output: projects/TRAVEL_GUIDE/research/book/field/RETURN_RAIL_MATRIX.md
+Acceptance: Collect current evening Lidui Park and Dujiangyan Station return candidates; station buffers; fallback logic; source timestamps; final-execution caveat
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_EVIDENCE_REVIEW;Generation=1;Token=2844b81ddfc74416a282144f74ef44d3
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 

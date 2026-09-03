@@ -1,0 +1,18 @@
+Schema: UOS_CLAIM_REQUEST_V1
+Status: PROCESSED
+RequestID: REQ-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7
+AgentID: AG_TRAVEL_EVIDENCE_REVIEW
+CanonicalID: TASK_TRAVEL_FIELD_RETURN_RAIL_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+RequestedAt: 2026-09-03T04:32:59Z
+Mode: CREATE
+ExecutionEpoch: UOS_EXEC_20260902_01
+LeaseMinutes: 90
+ExpectedPriorLockGitBlobSHA: 
+ExpectedPriorAgentID: 
+ExpectedPriorLeaseGeneration: 
+ExpectedPriorLeaseToken: 
+Decision: GRANTED
+GrantID: GRANT-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7
+GrantPath: coordination/claim_grants/AG_TRAVEL_EVIDENCE_REVIEW/REQ-TASK_TRAVEL_FIELD_RETURN_RAIL_01-G1-2844b81ddfc7.grant
+ClaimPath: coordination/claims/TASK_TRAVEL_FIELD_RETURN_RAIL_01.lock
