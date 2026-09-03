@@ -1,6 +1,7 @@
 {
   "attempt": 1,
   "completed_at": "2026-09-03T02:25:36Z",
+  "feedback": "User approved visible result in conversation on 2026-09-03",
   "outputs": [
     "projects/TRAVEL_GUIDE/research/book/field/RAIN_CROWD_DECISION_TREE.md"
   ],
@@ -15,7 +16,9 @@
   "project_warmup_override_satisfied": true,
   "review_reason": "DETERMINISTIC_SAMPLE",
   "review_required": true,
-  "review_status": "PENDING",
+  "review_status": "ACCEPTED",
+  "reviewed_at": "2026-09-03T02:56:04Z",
+  "reviewed_by": "CHAT_OPERATOR",
   "risk_tier": "LOW",
   "rule_epoch": 1,
   "rule_version": "VISIBILITY_V1",
