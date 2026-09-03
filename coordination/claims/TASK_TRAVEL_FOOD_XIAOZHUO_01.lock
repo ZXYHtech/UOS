@@ -1,0 +1,9 @@
+Schema: UOS_CLAIM_V1
+CanonicalID: TASK_TRAVEL_FOOD_XIAOZHUO_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_FOOD_DATA
+LeaseGeneration: 1
+LeaseToken: b591664f8b9a8e99cbe6a5c77166d8bb
+ClaimedAt: 2026-09-03T03:00:01Z
+LeaseExpiresAt: 2026-09-03T04:30:01Z
+FencingToken: 1:b591664f8b9a8e99cbe6a5c77166d8bb
