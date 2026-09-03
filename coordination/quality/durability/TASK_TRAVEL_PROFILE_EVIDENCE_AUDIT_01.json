@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/evidence/VISITOR_PROFILE_AUDIT.md",
+      "sha256": "7d3ea8ad35edf1c95d30780e6b8c724f501dc46619bd9e73a6d172d97b7a3834"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_PROFILE_EVIDENCE_AUDIT_01"
+}
