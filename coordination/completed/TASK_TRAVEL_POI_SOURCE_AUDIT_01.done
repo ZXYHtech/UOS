@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_POI_SOURCE_AUDIT_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_EVIDENCE_REVIEW
 LeaseGeneration: 1
 LeaseToken: f06914ace81f027e228f37dd59525688
-ClaimedAt: 2026-09-03T02:59:38Z
-LeaseExpiresAt: 2026-09-03T04:29:38Z
-FencingToken: 1:f06914ace81f027e228f37dd59525688
+CompletedAt: 2026-09-03T03:04:43Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_POI_SOURCE_AUDIT_01.json
