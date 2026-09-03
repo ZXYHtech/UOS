@@ -1,0 +1,30 @@
+Schema: UOS_CLAIM_GRANT_V1
+Status: GRANTED
+RequestID: REQ-TASK_TRAVEL_SPOT_NANQIAO_01-G1-3d79fea3334d
+GrantID: GRANT-TASK_TRAVEL_SPOT_NANQIAO_01-G1-3d79fea3334d
+CanonicalID: TASK_TRAVEL_SPOT_NANQIAO_01
+ProjectID: TRAVEL_GUIDE_DEPTH
+AgentID: AG_TRAVEL_CULTURE_REVIEWS
+GrantedAt: 2026-09-03T04:27:30Z
+ClaimPath: coordination/claims/TASK_TRAVEL_SPOT_NANQIAO_01.lock
+DonePath: coordination/completed/TASK_TRAVEL_SPOT_NANQIAO_01.done
+GrantPath: coordination/claim_grants/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_NANQIAO_01-G1-3d79fea3334d.grant
+RequestPath: coordination/claim_requests/AG_TRAVEL_CULTURE_REVIEWS/REQ-TASK_TRAVEL_SPOT_NANQIAO_01-G1-3d79fea3334d.request
+ClaimAuthority: UOS_CLAIM_BROKER_V2
+ClaimMode: CREATE
+LeaseGeneration: 1
+LeaseToken: 3d79fea3334dfa56f88528f88fda448c
+LeaseExpiresAt: 2026-09-03T05:57:30Z
+FencingToken: 1:3d79fea3334dfa56f88528f88fda448c
+ExecutionEpoch: UOS_EXEC_20260902_01
+Inputs: projects/TRAVEL_GUIDE/REQUIREMENTS_PUBLIC.md;projects/TRAVEL_GUIDE/research/RECENT_REVIEWS.md
+Output: projects/TRAVEL_GUIDE/research/book/spots/NANQIAO.md
+Acceptance: Cover bridge and riverfront role; daylight versus night tradeoff; dwell; station connection; recent review themes; no guaranteed light colour claims; dated sources
+Ownership: ACTIVE_CANONICAL_CLAIM_WITH_IMMUTABLE_REQUEST_AND_GRANT
+OwnershipCheckpoint: AgentID=AG_TRAVEL_CULTURE_REVIEWS;Generation=1;Token=3d79fea3334dfa56f88528f88fda448c
+PreviousAgentID: 
+PreviousLeaseGeneration: 
+PreviousLeaseToken: 
+PreviousGrantID: 
+PreviousGrantPath: 
+ReclaimedFromLockGitBlobSHA: 
