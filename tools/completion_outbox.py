@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import random
 import re
@@ -623,17 +624,102 @@ def ingest(
     raise CompletionOutboxError("unreachable")
 
 
+def _percentile(values: Iterable[int], q: float) -> int | None:
+    seq = sorted(int(value) for value in values)
+    if not seq:
+        return None
+    if len(seq) == 1:
+        return seq[0]
+    pos = (len(seq) - 1) * q
+    lo, hi = math.floor(pos), math.ceil(pos)
+    if lo == hi:
+        return seq[lo]
+    return round(seq[lo] + (seq[hi] - seq[lo]) * (pos - lo))
+
+
+def _parse_observation_time(value: object) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
 def status(root: Path, *, remote: str = "origin", branch: str = "main") -> dict[str, Any]:
+    """Return read-only queue + historical integration metrics.
+
+    Outbox refs are intentionally retained as audit/recovery evidence. Therefore
+    ``remote_refs_total`` is historical staged refs, while ``valid_queue_depth``
+    is the current mechanically ingestible queue. Canonical receipts are the
+    authoritative count of completed integrations.
+    """
     verify_identity(root, remote, branch)
     git(["fetch", "--quiet", remote, branch], cwd=root)
     _fetch_outbox_refs(root, remote)
     base = git(["rev-parse", f"refs/remotes/{remote}/{branch}"], cwd=root).stdout.strip()
+    refs = _list_outbox_refs(root, remote)
     valid, messages = _collect(root, base, remote, 128)
+
+    manifests: dict[str, dict[str, Any]] = {}
+    for ref_name, commit in refs:
+        manifest = _json_at(root, commit, MANIFEST_PATH) or {}
+        request_id = str(manifest.get("request_id") or "")
+        if request_id:
+            manifests[request_id] = manifest
+
+    receipt_names = git(
+        ["ls-tree", "-r", "--name-only", base, RECEIPT_ROOT],
+        cwd=root,
+        check=False,
+    ).stdout.splitlines()
+    receipts: list[dict[str, Any]] = []
+    for rel in receipt_names:
+        if not rel.endswith(".json"):
+            continue
+        item = _json_at(root, base, rel)
+        if item and item.get("schema") == "UOS_COMPLETION_OUTBOX_RECEIPT_V1":
+            receipts.append(item)
+
+    receipt_ids = {str(item.get("request_id") or "") for item in receipts}
+    retained_ingested = sum(1 for request_id in manifests if request_id in receipt_ids)
+    invalid_uningested = max(0, len(refs) - len(valid) - retained_ingested)
+
+    batches: dict[str, int] = {}
+    waits: list[int] = []
+    for item in receipts:
+        batch_id = str(item.get("batch_id") or "")
+        try:
+            batch_size = int(item.get("batch_size") or 0)
+        except Exception:
+            batch_size = 0
+        if batch_id and batch_size > 0:
+            batches.setdefault(batch_id, batch_size)
+        request_id = str(item.get("request_id") or "")
+        manifest = manifests.get(request_id)
+        if not manifest:
+            continue
+        requested = _parse_observation_time(manifest.get("requested_at"))
+        ingested = _parse_observation_time(item.get("ingested_at"))
+        if requested and ingested:
+            waits.append(max(0, round((ingested - requested).total_seconds() * 1000)))
+
+    batch_sizes = list(batches.values())
     return {
         "status": "OUTBOX_STATUS",
         "canonical_main": base,
+        "remote_refs_total": len(refs),
         "valid_queue_depth": len(valid),
         "valid_requests": [item.request_id for item in valid],
+        "canonical_receipts_total": len(receipts),
+        "retained_ingested_refs": retained_ingested,
+        "invalid_or_fenced_uningested_refs": invalid_uningested,
+        "batch_count": len(batches),
+        "batch_size_p50": _percentile(batch_sizes, 0.50),
+        "batch_size_p95": _percentile(batch_sizes, 0.95),
+        "batch_size_max": max(batch_sizes) if batch_sizes else 0,
+        "integration_wait_ms_p50": _percentile(waits, 0.50),
+        "integration_wait_ms_p95": _percentile(waits, 0.95),
+        "integration_wait_ms_max": max(waits) if waits else 0,
+        "skipped_count": len(messages),
         "skipped": messages,
     }
 

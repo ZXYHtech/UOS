@@ -14,6 +14,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    from completion_outbox import status as completion_outbox_status
+except ModuleNotFoundError:
+    from tools.completion_outbox import status as completion_outbox_status
+
 
 def repo_root() -> Path:
     here = Path.cwd().resolve()
@@ -133,6 +138,14 @@ def report(root: Path) -> dict[str, Any]:
     active_locks = list((root / "coordination/claims").glob("*.lock")) if (root / "coordination/claims").exists() else []
     request_decisions = Counter(r.get("Decision") or r.get("Status") or "UNKNOWN" for r in requests)
 
+    try:
+        outbox_observation = completion_outbox_status(root)
+    except Exception as exc:
+        outbox_observation = {
+            "status": "OUTBOX_OBSERVABILITY_UNAVAILABLE",
+            "reason": str(exc),
+        }
+
     return {
         "schema": "UOS_CLAIM_OBSERVABILITY_V1",
         "generated_at": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
@@ -172,9 +185,11 @@ def report(root: Path) -> dict[str, Any]:
             "review_block_count": review_blocks,
             "ownership_recovery_count": recovered,
         },
+        "completion_outbox": outbox_observation,
         "coverage": {
             "telemetry_note": "CAS latency/retry metrics cover Phase-5 telemetry-enabled Claim wins only.",
             "no_match_note": "NO_MATCH is counted from Work Session metrics; standalone failed Claims leave no canonical ownership artifact.",
+            "outbox_note": "Outbox refs are non-canonical retained work-plane evidence; only canonical receipts count as integrated completions.",
         },
     }
 

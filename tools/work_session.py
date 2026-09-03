@@ -248,6 +248,45 @@ def _lock_stale(lock: dict[str, str]) -> bool:
         return True
 
 
+def _pending_outbox_for_current(
+    root: Path,
+    *,
+    task: str,
+    agent_id: str,
+    lock: dict[str, str],
+    remote: str,
+) -> dict[str, str] | None:
+    """Find only the Outbox ref for the current immutable Grant.
+
+    The exact GrantID in the canonical Lock prevents old Generation refs retained
+    for audit from being mistaken for the current completion candidate.
+    """
+    if not remote or not lock:
+        return None
+    project = str(lock.get("ProjectID") or "")
+    grant_id = str(lock.get("GrantID") or "")
+    if not project or not grant_id:
+        return None
+    for value, label in ((project, "project id"), (task, "task id"), (agent_id, "agent id"), (grant_id, "grant id")):
+        _safe_id(value, label)
+    request_id = f"PUB-{grant_id}"
+    _safe_id(request_id, "publish request id")
+    ref_name = f"uos-outbox/{project}/{task}/{agent_id}/{request_id}"
+    proc = git(
+        ["ls-remote", "--heads", remote, f"refs/heads/{ref_name}"],
+        cwd=root,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return {
+        "request_id": request_id,
+        "outbox_ref": ref_name,
+        "grant_id": grant_id,
+        "lease_generation": str(lock.get("LeaseGeneration") or ""),
+    }
+
+
 def _record_claim_metrics(
     data: dict[str, object],
     grant: dict[str, object],
@@ -607,6 +646,30 @@ def next_step(
         current = adopted
         if _has_remote(root, remote):
             commit = _fetch_head(root, remote, branch)
+
+    if current and not _canonical_file_exists(root, commit, f"coordination/completed/{current}.done"):
+        current_lock = _canonical_claim_meta(root, commit, current)
+        pending_outbox = _pending_outbox_for_current(
+            root,
+            task=current,
+            agent_id=agent_id,
+            lock=current_lock,
+            remote=remote if _has_remote(root, remote) else "",
+        )
+        if pending_outbox:
+            deadline = parse_time(str(session["deadline_at"]))
+            return {
+                "status": "WAITING_INTEGRATION",
+                "task": current,
+                "outbox": pending_outbox,
+                "stop_after_current": utcnow() >= deadline or state == "STOPPING",
+                "session": session,
+                "instruction": (
+                    "The current completion is already persisted in the non-canonical Outbox. "
+                    "Do not modify or re-complete this task. Run mechanical `python tools/uos.py outbox ingest` "
+                    "and call session next again only after canonical Done is visible."
+                ),
+            }
 
     outcome, detail = _finish_current_if_possible(root, session=session, commit=commit)
     if outcome == "REWORK_REQUIRED":
