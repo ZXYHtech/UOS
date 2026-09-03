@@ -1,0 +1,79 @@
+name: UOS phase6 closeout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/phase6_closeout_patch.py'
+      - 'tests/test_work_session_outbox_wait.py'
+      - '.github/workflows/uos-phase6-closeout.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-closeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply closeout patch
+        run: python tools/phase6_closeout_patch.py
+      - name: Compile closeout kernel
+        run: |
+          python -m py_compile \
+            tools/work_session.py \
+            tools/completion_outbox.py \
+            tools/claim_observability.py
+      - name: Run closeout regressions
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            python -m unittest tests.test_work_session_outbox_wait -v
+            python -m unittest tests.test_completion_outbox_fallback -v
+            python -m unittest tests.test_work_session_v2_recovery -v
+            python -m unittest tests.test_claim_observability -v
+            python -m unittest tests.test_ai_book_delta_sync -v
+          } 2>&1 | tee phase6-closeout.log
+      - name: Upload closeout log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase6-closeout-log
+          path: phase6-closeout.log
+      - name: Fail if closeout tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          cat phase6-closeout.log
+          exit 1
+      - name: Diff check
+        run: git diff --check
+      - name: Publish tested closeout
+        run: |
+          if git diff --quiet; then
+            echo 'No closeout kernel patch needed.'
+            exit 0
+          fi
+          git config user.name 'UOS Kernel Bot'
+          git config user.email 'uos-kernel@example.invalid'
+          git add \
+            tools/work_session.py \
+            tools/completion_outbox.py \
+            tools/claim_observability.py \
+            .github/workflows/uos-claim-observability.yml
+          git commit -m 'feat: close phase6 session and outbox observability gaps'
+          for n in 1 2 3 4 5 6 7 8; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((n * 2))
+          done
+          echo 'Failed to publish tested Phase-6 closeout after retries' >&2
+          exit 1
