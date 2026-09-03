@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/food/REPRESENTATIVE_SNACK.md",
+      "sha256": "6fb8fb0d626e09d83ddbd58c78c41a2bb009fc2a0ed1a2f7755e3068f0152262"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_FOOD_ZHAOMAI_01"
+}
