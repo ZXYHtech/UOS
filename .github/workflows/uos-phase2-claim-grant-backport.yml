@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'tools/phase2_claim_grant_patch.py'
+      - 'tools/claim_integrity_scan.py'
+      - 'tests/test_claim_grant_integrity.py'
+      - 'tests/test_git_cas_lifecycle.py'
       - '.github/workflows/uos-phase2-claim-grant-backport.yml'
 
 permissions:
