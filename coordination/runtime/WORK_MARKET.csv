@@ -12,7 +12,6 @@ TASK_TRAVEL_PROFILE_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit visito
 TASK_TRAVEL_SEASON_EVIDENCE_AUDIT_01,TRAVEL_GUIDE_DEPTH,2,REVIEWER,Audit seasonality and visitor-flow evidence,evidence_season,L,4,L,web,projects/TRAVEL_GUIDE/research/book/evidence/SEASONALITY_AUDIT.md
 TASK_TRAVEL_SPOT_ANLAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Anlan Bridge,spot_anlan,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/ANLAN.md
 TASK_TRAVEL_SPOT_BAOPINGKOU_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Baopingkou,spot_baopingkou,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/BAOPINGKOU.md
-TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Dujiangyan Station,spot_station,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/DUJIANGYAN_STATION.md
 TASK_TRAVEL_SPOT_ERWANG_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Erwang Temple,spot_erwang,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/ERWANG.md
 TASK_TRAVEL_SPOT_FEISHAYAN_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Feishayan,spot_feishayan,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/FEISHAYAN.md
 TASK_TRAVEL_SPOT_GATE1_01,TRAVEL_GUIDE_DEPTH,2,RESEARCHER,Deep dossier for Scenic Area Gate 1,spot_gate1,M,3,M,web,projects/TRAVEL_GUIDE/research/book/spots/GATE1.md
