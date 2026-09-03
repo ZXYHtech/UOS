@@ -217,6 +217,17 @@ class GitCasLifecycleTests(unittest.TestCase):
             bootstrap_project(admin)
             publish_task(admin, "TASK_A", "projects/DEMO/a.txt")
 
+            # Force the first status attempt to have a real candidate commit.
+            # Without this, status may be a legitimate no-op and the old test only
+            # produced a ref race by scheduling accident.
+            git(admin, "pull", "--ff-only", "origin", "main")
+            runtime = admin / "coordination/runtime"
+            for name in ("STATUS.json", "TASK_STATUS.csv", "WORK_MARKET.csv"):
+                (runtime / name).unlink(missing_ok=True)
+            git(admin, "add", "-A")
+            git(admin, "commit", "-m", "make derived state intentionally stale")
+            git(admin, "push", "origin", "main")
+
             status_worker, writer = td / "status", td / "writer"
             clone(remote, status_worker)
             clone(remote, writer)
