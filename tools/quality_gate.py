@@ -65,6 +65,33 @@ def load_policy(root: Path) -> dict[str, Any]:
     }
 
 
+def project_operator_warmup_satisfied(root: Path, project_id: str) -> bool:
+    """Return True only for an explicit, audited project-level warmup override.
+
+    The repository-wide visibility policy remains the default. A project may
+    bypass only the RuleEpoch warmup portion after its PROJECT.yaml explicitly
+    records a one-confirmation policy as SATISFIED. Sampling and high-risk review
+    remain active.
+    """
+    project_id = (project_id or "").strip()
+    if not project_id:
+        return False
+    raw = _scalar_yaml(root / "orchestration/projects" / project_id / "PROJECT.yaml")
+    try:
+        required = int(raw.get("OperatorWarmupRequired", "0") or "0")
+    except ValueError:
+        return False
+    policy = raw.get("OperatorReviewPolicy", "").strip().upper()
+    status = raw.get("OperatorWarmupStatus", "").strip().upper()
+    mode = raw.get("PostWarmupMode", "").strip().upper()
+    return (
+        policy == "ONE_CONFIRMATION_THEN_CONTINUE"
+        and required == 1
+        and status == "SATISFIED"
+        and mode.startswith("PARALLEL_ALLOWED")
+    )
+
+
 def _safe_rel(value: str) -> str:
     raw = (value or "").strip().replace("\\", "/")
     path = PurePosixPath(raw)
@@ -191,6 +218,7 @@ def blocking_events(root: Path, project: str = "") -> list[dict[str, Any]]:
     policy = load_policy(root)
     if not policy["enabled"] or not policy["block_claims"]:
         return []
+    warmup_override = project_operator_warmup_satisfied(root, project) if project else False
     blocked = []
     for event in _events(root):
         if int(event.get("rule_epoch", -1)) != policy["rule_epoch"]:
@@ -198,6 +226,12 @@ def blocking_events(root: Path, project: str = "") -> list[dict[str, Any]]:
         if str(event.get("review_status", "")).upper() not in {"PENDING", "REJECTED"}:
             continue
         if project and str(event.get("project", "")) != project:
+            continue
+        if (
+            warmup_override
+            and str(event.get("project", "")) == project
+            and str(event.get("review_reason", "")).upper() == "RULE_EPOCH_WARMUP"
+        ):
             continue
         blocked.append(event)
     return blocked
@@ -265,7 +299,9 @@ def record_completion(root: Path, task_id: str) -> dict[str, Any] | None:
     ]
     sequence = len(current_events) + 1
     risk = str(row.get("risk_tier") or "LOW").upper()
-    required = sequence <= policy["warmup"]
+    project_id = str(row.get("project_id") or "")
+    warmup_override = project_operator_warmup_satisfied(root, project_id)
+    required = (not warmup_override) and sequence <= policy["warmup"]
     reason = "RULE_EPOCH_WARMUP" if required else ""
     if not required and policy["sample_every"] > 0 and sequence % policy["sample_every"] == 0:
         required = True
@@ -281,7 +317,7 @@ def record_completion(root: Path, task_id: str) -> dict[str, Any] | None:
         "sequence": sequence,
         "attempt": 1,
         "task": task_id,
-        "project": row.get("project_id", ""),
+        "project": project_id,
         "title": row.get("title", ""),
         "risk_tier": risk,
         "outputs": outputs,
@@ -289,6 +325,7 @@ def record_completion(root: Path, task_id: str) -> dict[str, Any] | None:
         "review_required": required,
         "review_reason": reason or "NOT_SAMPLED",
         "review_status": "PENDING" if required else "AUTO_ACCEPTED",
+        "project_warmup_override_satisfied": warmup_override,
         "completed_at": iso_now(),
         "presentation": {
             "must_present_in_conversation": bool(policy["present_in_conversation"]),
