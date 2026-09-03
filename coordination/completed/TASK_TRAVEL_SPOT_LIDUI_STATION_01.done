@@ -1,9 +1,9 @@
-Schema: UOS_CLAIM_V1
+Schema: UOS_DONE_V1
 CanonicalID: TASK_TRAVEL_SPOT_LIDUI_STATION_01
 ProjectID: TRAVEL_GUIDE_DEPTH
 AgentID: AG_TRAVEL_TRANSIT_MAP
 LeaseGeneration: 1
 LeaseToken: 8eed69dd5368beeb2f59f1b82e734445
-ClaimedAt: 2026-09-03T02:33:23Z
-LeaseExpiresAt: 2026-09-03T04:03:23Z
-FencingToken: 1:8eed69dd5368beeb2f59f1b82e734445
+CompletedAt: 2026-09-03T02:35:33Z
+Result: PASS
+DurabilityReceipt: coordination/quality/durability/TASK_TRAVEL_SPOT_LIDUI_STATION_01.json
