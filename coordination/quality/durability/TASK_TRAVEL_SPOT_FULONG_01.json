@@ -1,0 +1,15 @@
+{
+  "artifacts": [
+    {
+      "kind": "file",
+      "path": "projects/TRAVEL_GUIDE/research/book/spots/FULONG.md",
+      "sha256": "8d7df391b0a0df187ddccd7f868814f1504153dd16f8d9353b505921e94cef05"
+    }
+  ],
+  "binding_mode": "SAME_CANONICAL_TREE_TRANSACTION",
+  "missing": [],
+  "project": "TRAVEL_GUIDE_DEPTH",
+  "schema": "UOS_ARTIFACT_DURABILITY_V1",
+  "status": "DURABLE_READY",
+  "task": "TASK_TRAVEL_SPOT_FULONG_01"
+}
