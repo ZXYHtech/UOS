@@ -5,10 +5,12 @@ on:
     paths:
       - 'tools/canonical_runner.py'
       - 'tools/quality_gate.py'
+      - 'tools/control_extensions.py'
       - 'tests/test_project_warmup_override.py'
       - 'tests/test_quality_warmup_serial.py'
       - 'orchestration/projects/TRAVEL_GUIDE/**'
       - 'orchestration/projects/TRAVEL_GUIDE_DEPTH/**'
+      - 'projects/TRAVEL_GUIDE/tools/claim_depth.py'
       - '.github/workflows/uos-project-warmup-tests.yml'
   workflow_dispatch:
 
@@ -26,3 +28,20 @@ jobs:
       - name: Run project override regression tests
         run: |
           python -m unittest tests.test_project_warmup_override tests.test_quality_warmup_serial
+      - name: Verify travel depth Work Market
+        run: |
+          python tools/uos.py --transport local status --project TRAVEL_GUIDE_DEPTH > /tmp/travel-depth-status.json
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          market = Path('coordination/runtime/WORK_MARKET.csv')
+          rows = list(csv.DictReader(market.open(encoding='utf-8')))
+          ready = [row for row in rows if row.get('project_id') == 'TRAVEL_GUIDE_DEPTH']
+          ids = {row.get('canonical_id') for row in ready}
+          assert len(ready) == 23, f'expected 23 READY depth tasks, got {len(ready)}: {sorted(ids)}'
+          assert 'TASK_TRAVEL_SPOT_DUJIANGYAN_STATION_01' in ids
+          assert 'TASK_TRAVEL_POI_SOURCE_AUDIT_01' in ids
+          assert 'TASK_TRAVEL_BOOK_SEARCH_INDEX_01' not in ids
+          print('TRAVEL_GUIDE_DEPTH READY:', len(ready))
+          PY
