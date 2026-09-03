@@ -1,0 +1,28 @@
+name: UOS project warmup tests
+
+on:
+  push:
+    paths:
+      - 'tools/canonical_runner.py'
+      - 'tools/quality_gate.py'
+      - 'tests/test_project_warmup_override.py'
+      - 'tests/test_quality_warmup_serial.py'
+      - 'orchestration/projects/TRAVEL_GUIDE/**'
+      - 'orchestration/projects/TRAVEL_GUIDE_DEPTH/**'
+      - '.github/workflows/uos-project-warmup-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  warmup-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile changed UOS modules
+        run: |
+          python -m py_compile tools/canonical_runner.py tools/quality_gate.py projects/TRAVEL_GUIDE/tools/claim_depth.py
+      - name: Run project override regression tests
+        run: |
+          python -m unittest tests.test_project_warmup_override tests.test_quality_warmup_serial
