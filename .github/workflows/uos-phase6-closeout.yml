@@ -57,19 +57,22 @@ jobs:
           exit 1
       - name: Diff check
         run: git diff --check
-      - name: Publish tested closeout
+      - name: Publish tested runtime closeout
         run: |
           if git diff --quiet; then
             echo 'No closeout kernel patch needed.'
             exit 0
           fi
+          # The workflow patch was validated above but GITHUB_TOKEN does not have
+          # workflows permission. Publish only the tested runtime files here;
+          # the workflow file is updated separately through an authorized control path.
+          git restore .github/workflows/uos-claim-observability.yml
           git config user.name 'UOS Kernel Bot'
           git config user.email 'uos-kernel@example.invalid'
           git add \
             tools/work_session.py \
             tools/completion_outbox.py \
-            tools/claim_observability.py \
-            .github/workflows/uos-claim-observability.yml
+            tools/claim_observability.py
           git commit -m 'feat: close phase6 session and outbox observability gaps'
           # Tests/py_compile may alter tracked __pycache__ files and create logs.
           # The kernel candidate is already committed above, so scrub all test
@@ -80,5 +83,5 @@ jobs:
             git pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep $((n * 2))
           done
-          echo 'Failed to publish tested Phase-6 closeout after retries' >&2
+          echo 'Failed to publish tested Phase-6 runtime closeout after retries' >&2
           exit 1
