@@ -9,10 +9,14 @@ on:
       - 'coordination/claims/**'
       - 'coordination/work_sessions/**'
       - 'coordination/telemetry/claims/**'
+      - 'coordination/outbox_receipts/**'
       - 'tools/claim_observability.py'
       - 'tools/claim_telemetry.py'
+      - 'tools/completion_outbox.py'
       - 'tools/work_session.py'
       - '.github/workflows/uos-claim-observability.yml'
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 jobs:
