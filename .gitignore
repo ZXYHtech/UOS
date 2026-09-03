@@ -1,0 +1,14 @@
+# Python runtime/test byproducts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test / local transient output
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
