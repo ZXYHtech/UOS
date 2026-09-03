@@ -1,0 +1,91 @@
+name: UOS phase5 session observability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/phase5_work_session_observability_patch.py'
+      - 'tools/claim_telemetry.py'
+      - 'tools/claim_observability.py'
+      - 'tests/test_claim_telemetry_git_cas.py'
+      - 'tests/test_claim_observability.py'
+      - 'tests/test_work_session_v2_recovery.py'
+      - '.github/workflows/uos-phase5-session-observability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply Phase-5 patch
+        run: python tools/phase5_work_session_observability_patch.py
+
+      - name: Compile kernel
+        run: |
+          python -m py_compile \
+            tools/uos.py \
+            tools/claim_broker_v2.py \
+            tools/claim_telemetry.py \
+            tools/claim_observability.py \
+            tools/canonical_runner.py \
+            tools/agent_matching.py \
+            tools/work_session.py
+
+      - name: Run Phase-5 and lifecycle regressions
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            python -m unittest tests.test_claim_observability -v
+            python -m unittest tests.test_claim_telemetry_git_cas -v
+            python -m unittest tests.test_work_session_v2_recovery -v
+            python -m unittest tests.test_work_session_git_cas -v
+            python -m unittest tests.test_claim_request_reclaim -v
+            python -m unittest tests.test_git_cas_lifecycle -v
+          } 2>&1 | tee phase5-test.log
+
+      - name: Upload Phase-5 log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-test-log
+          path: phase5-test.log
+
+      - name: Fail if tests failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          cat phase5-test.log
+          exit 1
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Commit tested Phase-5 integration
+        run: |
+          if git diff --quiet; then
+            echo 'No Phase-5 patch needed.'
+            exit 0
+          fi
+          git config user.name 'UOS Kernel Bot'
+          git config user.email 'uos-kernel@example.invalid'
+          git add tools/canonical_runner.py tools/work_session.py tests
+          git commit -m 'feat: add resilient Work Session V2 and claim observability'
+          for n in 1 2 3 4 5 6 7 8; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((n * 2))
+          done
+          echo 'Failed to publish tested Phase-5 integration after retries' >&2
+          exit 1
