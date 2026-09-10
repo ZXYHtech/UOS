@@ -2,7 +2,7 @@ Schema: UOS_PROJECT_V1
 ProjectID: INVENTORY_DEEP_AUDIT
 Title: Inventory Lite — deep source, business-fit, open-source benchmark and roadmap audit
 State: ACTIVE
-IntentVersion: INVENTORY_DEEP_AUDIT_V1_20260911
+IntentVersion: INVENTORY_DEEP_AUDIT_V2_20260911
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/INVENTORY_DEEP_AUDIT
 Goal: Perform a read-only, evidence-based deep audit of ZXYHtech/inventory to determine how well the current system supports e-commerce, electronics product R&D, procurement, warehouse operations, manufacturing, sales and after-sales; benchmark relevant open-source systems; identify risks, gaps and high-value improvements; and produce an implementation-ready evolution roadmap.
@@ -12,12 +12,16 @@ CurrentPlannedTaskCount: 62
 ParallelResearchAllowed: true
 PrimaryDeliverable: projects/INVENTORY_DEEP_AUDIT/output/TASK_INV_AUDIT_FINAL_REPORT_01.md
 PlanningDocument: projects/INVENTORY_DEEP_AUDIT/REQUIREMENTS_AND_TASK_PLAN.md
+OperatorConstraintRef: projects/INVENTORY_DEEP_AUDIT/NO_GITHUB_ACTIONS_POLICY.md
+GitHubActionsDependency: FORBIDDEN
+ExecutionRequirement: All required validation, testing, scheduling, background processing, release, recovery and monitoring paths must be executable independently of GitHub Actions using repository-local or server-local mechanisms.
 NonGoals:
   - No direct write, refactor, migration or deployment change to ZXYHtech/inventory during this audit phase
   - No cross-repository ownership or runtime-state transfer
   - No fabricated feature claims or open-source comparisons without current evidence
   - No big-bang rewrite recommendation without quantified justification
   - No exposure of production credentials, private customer data or runtime database contents
+  - No recommendation whose correctness or required operation depends on GitHub Actions
 AcceptanceSummary:
   - Exact inventory repository snapshot is pinned before code conclusions are made
   - Current capabilities are mapped from code, schema, APIs, UI and docs rather than README claims alone
@@ -27,4 +31,5 @@ AcceptanceSummary:
   - At least 50 concrete UX/automation improvements are produced
   - Target architecture and 0-3-6-12-24 month roadmap are produced
   - Final report clearly separates observed facts, inferred risks and proposed changes
+  - Every required verification path is reproducible without GitHub Actions
 OperatorPhaseRef: docs/CURRENT_PHASE.md
