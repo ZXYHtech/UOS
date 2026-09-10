@@ -118,6 +118,16 @@ Recommendation:
 
 README should remain a concise product/start guide and link to a machine-readable/current capability manifest.
 
+### Drift E — even the iteration log trails the pinned commit
+
+The top of `docs/迭代执行记录.md` identifies its latest update as 2026-08-07, while the pinned `main` commit is dated 2026-08-10 and `server.py` identifies release version `2.4.4`. Therefore the iteration log is valuable recent evidence but cannot be treated as complete evidence for the exact pinned commit.
+
+Recommendation:
+
+- release/change logging should be part of the same local release command that updates/version-checks source;
+- the release command should fail or warn when version metadata changed but no matching release record exists;
+- the check must run locally/server-side and must not depend on GitHub Actions.
+
 ## 4. Documentation roles should be separated
 
 Current repository mixes several document types:
@@ -232,7 +242,8 @@ This should drive human docs and consistency checks where practical.
 1. correct Android online/offline conflict;
 2. label PostgreSQL as incomplete/experimental until parity exists;
 3. refresh current architecture domain/schema map;
-4. identify the authoritative supported-client list.
+4. identify the authoritative supported-client list;
+5. close the release-version / iteration-log gap.
 
 ### P1
 
@@ -253,7 +264,7 @@ This should drive human docs and consistency checks where practical.
 0–5 static maturity:
 
 - developer navigation discipline: **4/5**
-- recent iteration history: **4.5/5**
+- recent iteration history: **4/5**
 - broad overview freshness: **2/5**
 - architecture-document freshness: **2/5**
 - deployment/client truth consistency: **2.5/5**
