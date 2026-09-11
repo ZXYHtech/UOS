@@ -79,6 +79,28 @@ python3 tools/create_safe_backup.py \
 
 The source production DB is not modified by the backup operation.
 
+### Missing production DB is a hard stop
+
+`update_server.sh` is an upgrade path, not a first-deployment path.
+
+If this file is absent:
+
+```text
+$APP_DIR/data/inventory.sqlite3
+```
+
+the script must stop before package/code/schema cutover. It must **not** create a fresh empty database and continue.
+
+Interpret a missing production DB as one of:
+
+- wrong application/data path;
+- missing storage mount;
+- accidental deletion;
+- incomplete recovery;
+- operator error.
+
+First deployment belongs to `setup_server.sh`. Recovery requires restoring an explicitly verified backup first.
+
 ## 5. Layer D — prove the DB backup can restore
 
 A backup file existing is not enough.
@@ -144,7 +166,48 @@ $APP_DIR/.inventory-release-ref
 
 Scheduled backups also declare their recovery config set explicitly. A configured required path disappearing is a backup failure, not a silent omission.
 
-## 9. Only after backup proof: maintenance cutover
+## 9. Backup-only production preflight
+
+Before choosing the maintenance window, operators can run the real update path in backup/preflight mode:
+
+```bash
+INVENTORY_PREFLIGHT_ONLY=1 \
+INVENTORY_REPO_BRANCH=<target-branch> \
+sudo -E bash deploy/linux/update_server.sh
+```
+
+This mode performs:
+
+```text
+target repository Release Gate
+ -> current deployed-code snapshot
+ -> current production DB consistent snapshot
+ -> isolated DB restore verification
+ -> manifest/checksum generation
+ -> off-host Recovery Bundle when configured
+ -> PASS/FAIL
+```
+
+and then exits **before**:
+
+```text
+stopping Web/OCR
+rsyncing target code into APP_DIR
+running production schema migration
+changing .inventory-release-ref
+```
+
+Expected success marker:
+
+```text
+PREFLIGHT ONLY: PASS
+```
+
+This is the preferred way to prove backup/recovery readiness before the actual maintenance cutover.
+
+A successful preflight does not authorize a later cutover if the production DB/code changes materially between preflight and maintenance time; the real update still creates a fresh pre-change snapshot again immediately before cutover.
+
+## 10. Only after backup proof: maintenance cutover
 
 Required ordering:
 
@@ -170,7 +233,7 @@ Release Gate PASS
 
 If failure occurs after writers have been stopped, Web/OCR remain stopped until an operator explicitly repairs or restores. Do not resume a mixed/unknown state automatically.
 
-## 10. Mandatory evidence retained for every production upgrade
+## 11. Mandatory evidence retained for every production upgrade
 
 Record:
 
@@ -184,21 +247,23 @@ DB snapshot path
 DB snapshot SHA-256
 DB schema version
 restore verification result
-a recovery manifest path/checksum
+recovery manifest path/checksum
 off-host bundle path/checksum when applicable
 post-cutover health result
 operator/change reference
 ```
 
-## 11. Production database boundary
+When a backup-only preflight is run, retain its evidence separately from the final cutover backup evidence.
+
+## 12. Production database boundary
 
 Current E00 work in GitHub does **not** mean the live server DB has already been backed up or modified.
 
-The live DB snapshot can only be produced on the server (or from an explicitly authorized copy) when the production update/preflight is actually run.
+The live DB snapshot can only be produced on the server (or from an explicitly authorized copy) when production preflight/update is actually run.
 
 Do not claim a production backup exists until the server-side command output and backup files have been observed.
 
-## 12. E00 completion relationship
+## 13. E00 completion relationship
 
 This production policy complements, but does not replace, the repository-local E00 gate:
 
