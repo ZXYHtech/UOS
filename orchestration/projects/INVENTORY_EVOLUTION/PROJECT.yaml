@@ -1,0 +1,40 @@
+Schema: UOS_PROJECT_V1
+ProjectID: INVENTORY_EVOLUTION
+Title: Inventory Lite — controlled evolution implementation
+State: ACTIVE
+IntentVersion: INVENTORY_EVOLUTION_V1_20260911
+RepositoryMode: SAME_REPOSITORY
+WorkRoot: projects/INVENTORY_EVOLUTION
+Goal: Execute the approved Inventory Lite deep-audit roadmap incrementally, starting with release safety, migrations, recovery, action policy, idempotency and the stock/reservation kernel, while preserving current operator workflows and avoiding a big-bang rewrite.
+AuditSourceRepository: https://github.com/ZXYHtech/UOS
+AuditSourceRef: 8287a98328d9409e6a1051194e9dcb9a052b9a74
+AuditSourcePR: https://github.com/ZXYHtech/UOS/pull/1
+AuditPrimaryReport: projects/INVENTORY_DEEP_AUDIT/output/TASK_INV_AUDIT_FINAL_REPORT_01.md
+ImplementationBacklog: projects/INVENTORY_DEEP_AUDIT/output/TASK_INV_AUDIT_IMPLEMENTATION_BACKLOG_01.md
+ExternalImplementationRepository: https://github.com/ZXYHtech/inventory
+ExternalImplementationBaseline: 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
+ExternalImplementationBranchPrefix: impl/
+ExternalImplementationMode: WRITE_ON_DEDICATED_BRANCHES_WITH_PR
+GitHubActionsDependency: FORBIDDEN
+ExecutionRequirement: Required correctness, release validation, migration verification, background execution, backup/recovery and production operation must work through repository-local or server-local mechanisms independently of GitHub Actions.
+PrimaryDeliverable: projects/INVENTORY_EVOLUTION/output/IMPLEMENTATION_STATUS.md
+PlanningDocument: projects/INVENTORY_EVOLUTION/REQUIREMENTS_AND_TASK_PLAN.md
+OperatorConstraintRef: projects/INVENTORY_EVOLUTION/NO_GITHUB_ACTIONS_POLICY.md
+ArchitectureChoice: MODULAR_MONOLITH_PLUS_DURABLE_WORKER
+DatabasePolicy: KEEP_SQLITE_UNTIL_MEASURED_SCALE_OR_HA_TRIGGER_JUSTIFIES_POSTGRESQL
+FirstImplementationBranch: impl/e00-release-safety
+NonGoals:
+  - No big-bang rewrite
+  - No microservice split during foundation phase
+  - No Kafka or generic event bus requirement
+  - No mandatory Redis or Kubernetes
+  - No autonomous high-risk AI mutation
+  - No MRP before stock reservation and released MBOM truth are authoritative
+  - No PostgreSQL migration before canonical migrations, parity tests and measured entry criteria exist
+AcceptanceSummary:
+  - Every implemented story has schema/domain/permission/state/idempotency/audit/test evidence where applicable
+  - Existing production workflows remain backward-compatible unless an explicit migration gate approves a change
+  - E00 release safety is completed before high-risk schema domains begin
+  - E01 action/idempotency/job infrastructure precedes broad automation and connector rewrites
+  - E02 stock/reservation kernel is proven under retry and concurrency before omnichannel ATP or MRP
+  - No required validation or runtime path depends on GitHub Actions
