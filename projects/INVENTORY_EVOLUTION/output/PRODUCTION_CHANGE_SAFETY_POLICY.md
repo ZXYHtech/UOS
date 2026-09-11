@@ -4,13 +4,11 @@
 
 `MANDATORY_FOR_PRODUCTION_CHANGE`
 
-This policy applies before any production change that can alter deployed code, database schema, authoritative business state or recovery configuration.
-
-It is stricter than ordinary source-control rollback because the real server can contain runtime configuration or local changes not represented by Git.
+This policy applies before any production change that can alter deployed code, runtime dependencies, database schema, authoritative business state or recovery configuration.
 
 ## 1. Non-negotiable rule
 
-No production schema/code cutover may begin until all required pre-change evidence has been captured and verified.
+No production cutover may begin until all required pre-change evidence has been captured and verified.
 
 Required evidence:
 
@@ -24,9 +22,13 @@ F. off-host/off-disk verified Recovery Bundle when configured/required
 G. exact current and target release identities
 ```
 
-If any mandatory step fails, the deployment stops before service quiesce/schema mutation.
+The rule is stricter than “backup before schema migration”:
 
-## 2. Layer A — pre-audit repository version
+> No `apt`, `pip`, code sync, service cutover or schema mutation is allowed before the old code + DB recovery evidence exists.
+
+For a real cutover, running Web/OCR/background writers are also stopped **before** `apt`/`pip` changes, so the old production application never runs against a partially updated runtime environment.
+
+## 2. Frozen pre-audit repository version
 
 The code state that existed before E00 implementation is frozen at:
 
@@ -36,40 +38,31 @@ branch: backup/pre-e00-audit-20260911
 commit: 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
 ```
 
-Purpose:
+This preserves the audited historical source baseline but does not replace a server-side snapshot because a production server may contain manual/local changes not represented by Git.
 
-- preserve the audited historical source baseline;
-- provide an immutable comparison point while implementation branches evolve;
-- prevent later PR changes from erasing the original system state.
+## 3. Exact deployed-server code snapshot
 
-This branch does **not** replace a server-side snapshot because a server may contain local/manual deployment changes.
+Immediately before database backup/cutover, `update_server.sh` creates:
 
-## 3. Layer B — exact deployed-server code snapshot
-
-Immediately before database backup/cutover, `update_server.sh` invokes:
-
-```bash
-python3 tools/create_prechange_snapshot.py \
-  "$APP_DIR" \
-  --output "$BACKUP_DIR/deployed-code-<timestamp>.tar.gz" \
-  --metadata "$BACKUP_DIR/deployed-code-<timestamp>.tar.gz.json" \
-  --release-ref "$CURRENT_RELEASE_REF"
+```text
+deployed-code-<timestamp>.tar.gz
+deployed-code-<timestamp>.tar.gz.json
 ```
 
-Snapshot contract:
+using `tools/create_prechange_snapshot.py`.
 
-- captures the actual server deployment tree, not just a Git ref;
-- excludes runtime `data/`, `.git`, `__pycache__`, `.pyc`;
-- records file list, archive size, SHA-256 and current release identity;
-- reopens the archive and verifies member list before publishing metadata;
-- never overwrites a prior snapshot;
-- always excludes its own archive/metadata even if a custom backup directory lives inside the application tree.
+Contract:
 
-## 4. Layer C — production SQLite snapshot
+- capture the actual deployed application tree;
+- exclude runtime `data/`, `.git`, `__pycache__`, `.pyc`;
+- record file list, size, SHA-256 and current release identity;
+- reopen and verify archive members before publishing metadata;
+- never overwrite a prior snapshot;
+- exclude its own output even if a custom backup directory lives inside the application tree.
 
-The live database must be copied using SQLite Online Backup API, not `cp` of a WAL-mode database.
+## 4. Production SQLite snapshot
 
-Required command path:
+The live database must be copied with SQLite Online Backup API, not `cp` of a WAL-mode database:
 
 ```bash
 python3 tools/create_safe_backup.py \
@@ -77,33 +70,19 @@ python3 tools/create_safe_backup.py \
   --output "$BACKUP_DIR/inventory-<timestamp>.sqlite3"
 ```
 
-The source production DB is not modified by the backup operation.
+### Missing DB is a hard stop
 
-### Missing production DB is a hard stop
-
-`update_server.sh` is an upgrade path, not a first-deployment path.
-
-If this file is absent:
+`update_server.sh` is an upgrade path, not a first-deployment path. If:
 
 ```text
 $APP_DIR/data/inventory.sqlite3
 ```
 
-the script must stop before package/code/schema cutover. It must **not** create a fresh empty database and continue.
+is absent, the update stops before clone/package/code/schema cutover. It must never silently create a fresh empty database.
 
-Interpret a missing production DB as one of:
+Possible causes include wrong path, lost mount, accidental deletion or incomplete recovery. First deployment belongs to `setup_server.sh`; recovery requires an explicitly verified backup.
 
-- wrong application/data path;
-- missing storage mount;
-- accidental deletion;
-- incomplete recovery;
-- operator error.
-
-First deployment belongs to `setup_server.sh`. Recovery requires restoring an explicitly verified backup first.
-
-## 5. Layer D — prove the DB backup can restore
-
-A backup file existing is not enough.
+## 5. Prove the DB backup can restore
 
 Before cutover:
 
@@ -111,48 +90,38 @@ Before cutover:
 python3 tools/verify_backup_restore.py "$BACKUP_FILE"
 ```
 
-Verification must restore into an isolated temporary DB and prove:
+The verifier restores into an isolated temporary DB and checks SQLite integrity, schema/baseline, migration registry, logical evidence relationships and representative business reads.
 
-- SQLite integrity;
-- baseline/schema validity;
-- migration-registry validity;
-- logical evidence relationships;
-- representative inventory/order/purchase/recognition reads.
+A backup file merely existing is not sufficient evidence.
 
-Failure blocks cutover.
+## 6. Recovery manifest and release provenance
 
-## 6. Layer E — recovery manifest
+The manifest records:
 
-The pre-change DB backup receives a manifest containing:
-
-- source release identity of the currently deployed version;
+- old/current deployed release identity;
 - schema version;
 - file size and SHA-256;
-- deployed-code archive + archive metadata when a full off-host bundle is built;
+- deployed-code archive + metadata when building a full Recovery Bundle;
 - business artifacts such as images when configured;
-- deployment configuration that exists on the server.
+- deployment configuration that actually exists on the server.
 
-Important provenance rule:
+A backup taken **before** an upgrade belongs to the **old/current release**, never the new temporary clone HEAD.
 
-> A backup made **before** an upgrade belongs to the **old/current deployed release**, never to the new temporary Git clone.
+## 7. Second failure domain
 
-## 7. Layer F — second failure domain
-
-When `INVENTORY_OFFHOST_BACKUP_DIR` is configured, the Recovery Bundle must be copied to a pre-existing target that contains:
+When `INVENTORY_OFFHOST_BACKUP_DIR` is configured, Recovery Bundle copy requires a pre-existing destination containing:
 
 ```text
 .inventory-backup-target
 ```
 
-This marker must be created on the verified mounted NAS/NFS/SMB/sshfs/off-disk filesystem.
+The marker must live on the verified mounted NAS/NFS/SMB/sshfs/off-disk filesystem. The application never auto-creates the target root. If the mount disappears, backup fails instead of silently writing a fake “off-host” backup on the primary server.
 
-The application must never create the off-host root automatically. If the mount disappears, backup must fail rather than silently writing a fake off-host backup on the primary server.
-
-Destination files are hash-verified before the bundle is atomically published.
+Copied files are checksum-verified before atomic publication.
 
 ## 8. Recovery configuration set
 
-The full Recovery Bundle should include the current files that exist for:
+The full bundle should capture existing relevant configuration, including:
 
 ```text
 /etc/inventory-lite/backup.env
@@ -164,11 +133,26 @@ The full Recovery Bundle should include the current files that exist for:
 $APP_DIR/.inventory-release-ref
 ```
 
-Scheduled backups also declare their recovery config set explicitly. A configured required path disappearing is a backup failure, not a silent omission.
+Scheduled backups declare recovery-config paths explicitly. A declared required config disappearing is a backup failure, not a silent omission.
 
-## 9. Backup-only production preflight
+## 9. Bootstrap tools before backup
 
-Before choosing the maintenance window, operators can run the real update path in backup/preflight mode:
+The production update path requires existing:
+
+```text
+git
+python3
+```
+
+These are bootstrap prerequisites used to fetch and execute the backup/recovery tooling. If either is absent, the script exits.
+
+It deliberately does **not** install them before pre-change evidence is captured, because doing so would violate the “backup before server mutation” rule.
+
+Before target-branch backup tools are allowed to touch production data, the script runs a narrow `py_compile` check over the backup/recovery code using the existing Python runtime.
+
+## 10. Backup-only production preflight
+
+Operators can exercise the real backup path without changing the running system:
 
 ```bash
 INVENTORY_PREFLIGHT_ONLY=1 \
@@ -176,22 +160,25 @@ INVENTORY_REPO_BRANCH=<target-branch> \
 sudo -E bash deploy/linux/update_server.sh
 ```
 
-This mode performs:
+The mode performs:
 
 ```text
-target repository Release Gate
- -> current deployed-code snapshot
+clone target to temporary directory
+ -> narrow backup-tool compile gate
+ -> exact current deployed-code snapshot
  -> current production DB consistent snapshot
- -> isolated DB restore verification
+ -> isolated restore verification
  -> manifest/checksum generation
  -> off-host Recovery Bundle when configured
+ -> run target Release Gate using currently installed dependencies
  -> PASS/FAIL
 ```
 
-and then exits **before**:
+It exits before:
 
 ```text
-stopping Web/OCR
+apt/pip dependency changes
+stopping Web/OCR/background writers
 rsyncing target code into APP_DIR
 running production schema migration
 changing .inventory-release-ref
@@ -203,72 +190,81 @@ Expected success marker:
 PREFLIGHT ONLY: PASS
 ```
 
-This is the preferred way to prove backup/recovery readiness before the actual maintenance cutover.
+If the target Release Gate cannot run with currently installed dependencies, the pre-change snapshots still exist, but preflight returns failure. Operators may then plan the real maintenance window; the preflight path itself must not mutate packages to make the test pass.
 
-A successful preflight does not authorize a later cutover if the production DB/code changes materially between preflight and maintenance time; the real update still creates a fresh pre-change snapshot again immediately before cutover.
+A successful preflight does not replace the fresh snapshots generated immediately before the real cutover.
 
-## 10. Only after backup proof: maintenance cutover
+## 11. Real maintenance cutover ordering
 
-Required ordering:
+Required order:
 
 ```text
-Release Gate PASS
+confirm existing production DB
+ -> confirm existing git/python3 bootstrap tools
+ -> clone target to /tmp only
+ -> narrow compile gate for backup/recovery tooling
  -> exact deployed-code snapshot PASS
  -> SQLite snapshot PASS
  -> isolated restore PASS
  -> manifest/checksum PASS
  -> off-host bundle PASS when configured
- -> remember whether backup timer was active
+ -> remember backup-timer state
  -> stop backup timer/service
  -> stop OCR worker
  -> stop Web/API writers
- -> sync new code
- -> numbered migration
- -> post-migration integrity
+ -> mark deployment quiesced
+ -> apt/pip target runtime dependencies
+ -> full repository Release Gate PASS
+ -> rsync target code
+ -> numbered migration + postflight integrity
  -> publish new release identity
- -> start services
+ -> restart services
  -> /api/health PASS
  -> resume previously-active backup timer
 ```
 
-If failure occurs after writers have been stopped, Web/OCR remain stopped until an operator explicitly repairs or restores. Do not resume a mixed/unknown state automatically.
+This ordering gives two protections at once:
 
-## 11. Mandatory evidence retained for every production upgrade
+1. package/code/schema changes never begin before recovery evidence exists;
+2. the old application does not keep processing business writes while its runtime dependencies are being changed.
 
-Record:
+If any failure occurs after writer quiescence, Web/OCR remain stopped until an operator explicitly repairs or restores. Do not auto-resume an unknown mixed state.
+
+## 12. Mandatory evidence for each production upgrade
+
+Retain:
 
 ```text
 change timestamp
 old/current release SHA
 new/target release SHA
-pre-change code snapshot path
-pre-change code snapshot SHA-256
-DB snapshot path
-DB snapshot SHA-256
+pre-change code snapshot path + SHA-256
+DB snapshot path + SHA-256
 DB schema version
 restore verification result
 recovery manifest path/checksum
 off-host bundle path/checksum when applicable
+full Release Gate result
 post-cutover health result
 operator/change reference
 ```
 
-When a backup-only preflight is run, retain its evidence separately from the final cutover backup evidence.
+Preflight evidence and final cutover evidence are separate records.
 
-## 12. Production database boundary
+## 13. Production database boundary
 
 Current E00 work in GitHub does **not** mean the live server DB has already been backed up or modified.
 
-The live DB snapshot can only be produced on the server (or from an explicitly authorized copy) when production preflight/update is actually run.
+A real production backup exists only after the production host (or an explicitly authorized production copy) has produced the files and successful verification output.
 
-Do not claim a production backup exists until the server-side command output and backup files have been observed.
+Do not claim otherwise.
 
-## 13. E00 completion relationship
+## 14. E00 completion relationship
 
-This production policy complements, but does not replace, the repository-local E00 gate:
+This policy complements, but does not replace, the repository-local E00 gate:
 
 ```bash
 python3 tools/verify_release.py
 ```
 
-E00 remains incomplete until the implementation checkout passes that gate. Production rollout additionally requires the pre-change backup sequence in this policy.
+E00 remains incomplete until the implementation checkout passes that gate. Production rollout additionally requires this server-side pre-change protection chain.
