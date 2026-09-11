@@ -4,175 +4,199 @@
 
 **Phase:** E00 Release Safety / Migration / Recovery Foundation  
 **Implementation state:** `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`  
-**Do not mark E00 complete yet.**
+**E01 state:** `DESIGN_READY_BLOCKED_BY_E00_GATE`  
+**E02 state:** `BLOCKED`
 
-External implementation repository:
+External implementation:
 
-- repository: `ZXYHtech/inventory`
-- baseline/current main at start: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
-- implementation branch: `impl/e00-release-safety`
-- current implementation head recorded here: `16ae9ebc74782cd62819323c8d162ceddc7a29a5`
-- draft PR: `https://github.com/ZXYHtech/inventory/pull/3`
+- repo: `ZXYHtech/inventory`
+- baseline/main: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
+- branch: `impl/e00-release-safety`
+- reviewed head: `7a8e0adcc0bf4f8fddba4688802ef2486f18f56c`
+- PR: `ZXYHtech/inventory#3`
+- PR state: Draft; direct GitHub state reports `mergeable=true`, `rebaseable=true`, `mergeable_state=clean`
 
-The PR remains intentionally draft because the full repository-local release gate has not yet been executed from a real checkout.
+Do **not** mark E00 complete until the repository-local Release Gate is executed from a real checkout.
 
-## E00 story implementation coverage
+## E00 story coverage
 
-| Story | Code state | Validation state | UOS evidence |
+| Story | Code | Runtime validation | Evidence |
 |---|---|---|---|
-| E00-S01 schema version + numbered migration runner | Implemented | Awaiting local execution | `TASK_INV_IMPL_E00_S01.md` |
-| E00-S02 representative old-DB fixtures | Implemented | Awaiting local execution | `TASK_INV_IMPL_E00_S02.md` |
-| E00-S03 integrity + orphan checks | Implemented | Awaiting local execution | `TASK_INV_IMPL_E00_S03.md` |
-| E00-S04 local release gate | Implemented + statically hardened | Awaiting local execution | `TASK_INV_IMPL_E00_S04.md` |
-| E00-S05 isolated restore verification | Implemented | Awaiting local execution | `TASK_INV_IMPL_E00_S05.md` |
-| E00-S06 backup manifest/checksums | Implemented | Awaiting local execution | `TASK_INV_IMPL_E00_S06.md` |
-| E00-S07 off-host copy + health + scheduler path | Implemented + statically hardened | Awaiting local execution | `TASK_INV_IMPL_E00_S07.md` |
+| E00-S01 migration registry/baseline adoption | Implemented | Awaiting real checkout | `TASK_INV_IMPL_E00_S01.md` |
+| E00-S02 historical DB fixtures | Implemented | Awaiting real checkout | `TASK_INV_IMPL_E00_S02.md` |
+| E00-S03 integrity/orphan checks | Implemented + expanded | Awaiting real checkout | `TASK_INV_IMPL_E00_S03.md` |
+| E00-S04 authoritative Release Gate | Implemented + fail-closed | Awaiting real checkout | `TASK_INV_IMPL_E00_S04.md` |
+| E00-S05 isolated restore verification | Implemented + transaction-aligned | Awaiting real checkout | `TASK_INV_IMPL_E00_S05.md` |
+| E00-S06 recovery manifest/checksums/config | Implemented + expanded | Awaiting real checkout | `TASK_INV_IMPL_E00_S06.md` |
+| E00-S07 off-host copy/health/scheduler | Implemented + fail-closed | Awaiting real checkout | `TASK_INV_IMPL_E00_S07.md` |
 
-## Static review completed after initial E00 implementation
+## Major E00 hardening completed after first implementation
 
-A second code-level review was performed against Inventory PR #3 rather than assuming that file presence implied a safe gate.
+### Release Gate
 
-### Release gate fail-closed hardening
+`tools/verify_release.py` is the authoritative local/server command. Required tests/files are not silently skipped. It now includes:
 
-The initial `tools/verify_release.py` filtered required test paths by existence. That meant a damaged/incomplete checkout could theoretically execute fewer required checks and still report success.
+- Python compile checks;
+- migration/integrity/recovery/backup tests;
+- deployment-safety regression;
+- existing auth/core/recognition/warehouse regressions;
+- Bash syntax when available/required;
+- JavaScript syntax and existing client-routing regression when Node is available/required.
 
-Inventory commit `b671f674aa69ac3adb55429fe54f456ab9ea137b` corrects this:
+No required correctness logic is unique to GitHub Actions.
 
-- required Python regression files are no longer silently filtered;
-- required E00/core Python files are no longer silently omitted from `py_compile`;
-- Bash syntax checks are added for deployment/start scripts when Bash is available;
-- existing `tools/test_client_routing.js` is actually executed when Node is available, in addition to JS syntax checks;
-- `--require-node` and `--require-bash` allow stricter operator/release environments.
+### Migration publication safety
 
-### Backup snapshot collision hardening
+Numbered migrations now use explicit SQLite `BEGIN IMMEDIATE` semantics. DDL, migration-registry row and postflight integrity belong to one transaction. Failure rolls back.
 
-The first independent backup-job implementation named snapshots with second-level timestamps. A manual retry or duplicate trigger in the same second could fail safely with `FileExistsError`, but this is unnecessary operational noise.
+Additional contracts:
 
-Inventory commit `61d486d9c1323d65694e7d7c0f6f3078eaf60045` changes names to UTC plus microseconds while preserving the rule that an already-published backup is never overwritten.
+- migration versions must be contiguous after baseline version 1;
+- unknown/tampered migration history is rejected;
+- deterministic test injects Migration 2, forces postflight failure and requires both test DDL and registry row to disappear.
 
-### Off-host false-success hardening
+### Integrity evidence
 
-Static review found a more consequential disaster-recovery edge case: the first off-host copy path auto-created its destination root. If a NAS/NFS/SMB/sshfs mount disappeared, a primary host could create the same local directory path and make a local copy appear to be an off-host backup.
+Read-only integrity checks now extend beyond the original core tables into operational evidence including:
 
-Inventory commits `f545c14e3ba5af9fcbb48baf1435dc423792a3ad` through `16ae9ebc74782cd62819323c8d162ceddc7a29a5` make this fail closed:
+- inventory account/location validity and cross-warehouse location mismatch;
+- inventory logs;
+- shipment scan/archive chains;
+- transfer receipt events;
+- inventory counts;
+- project BOM / BOM operations;
+- purchase order/item/receipt/landed-cost ancestry;
+- pricing revisions/rules;
+- attachment derivative and recognition revision/correction chains;
+- material metadata/resources.
 
-- backup destination roots are never auto-created;
-- scheduled/production off-host copy requires `.inventory-backup-target`;
-- tests reject a missing destination root;
-- tests reject an existing but unmarked destination;
-- the independent backup job records a failed health result when the marker is absent;
-- setup documentation requires creating the marker on the verified mounted filesystem;
-- enabling the backup timer first executes one full backup/recovery iteration, so a configured invalid target blocks timer enablement.
+### Release / upgrade cutover
 
-This marker is not a general proof of remote topology; it is an operational mount sentinel. Operators must create it only after confirming the intended second failure domain is mounted and writable.
-
-## Key implementation decisions
-
-### Baseline adoption instead of destructive migration-history replay
-
-The historical application used:
-
-```text
-SCHEMA_SQL
- -> migrate(conn)
- -> seed
-```
-
-E00 preserves that compatibility path for pre-E00 databases, then validates the known current schema before recording:
+`update_server.sh` now treats code + schema cutover as a maintenance transaction:
 
 ```text
-schema_migrations.version = 1
-baseline_current_schema_20260810
-source_ref = 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
+new code Release Gate
+ -> consistent pre-upgrade backup
+ -> isolated recovery verification + manifest/off-host copy
+ -> stop backup timer/service + OCR + Web writers
+ -> rsync code
+ -> numbered migration + integrity postflight
+ -> persist new release identity
+ -> restart
+ -> health check
+ -> restore previously-active backup timer
 ```
 
-Future structural changes should be numbered immutable migrations rather than indefinitely expanding legacy `migrate(conn)`.
+If failure occurs after writer quiescence, services remain stopped instead of continuing in an unknown mixed version.
 
-### Real historical fixtures
+Pre-upgrade backup Manifest records the **currently deployed** release, not the new clone HEAD.
 
-Migration tests use embedded deterministic fixtures based on actual repository history:
+### Fresh/repair deployment safety
 
-- `3e9eff41196847ad96badffe1705fc6671e68fb0` — early Inventory Lite baseline;
-- `84d25e9a270eadc869ed01746b46aa1d88d65985` — Stage 5/6 permissions, aliases and BOM era.
+`setup_server.sh` may be re-run without allowing `rsync --delete` to own `data/`. The entire runtime `data/` tree is excluded, protecting DB, images, generated artifacts, backup files and health records.
 
-Fixture tests preserve representative material, quantity, order and alias records through upgrade.
+A setup is not published as successful until `/api/health` passes. Release identity and backup-timer enablement occur only after health succeeds.
 
-### Release validation remains local/server-owned
+### Release provenance
 
-Authoritative entry point:
+Deployment persists `.inventory-release-ref`; scheduled backups can retain application release identity even though `.git` is deliberately absent from the deployed directory.
+
+### Disaster-recovery bundle
+
+Off-host destination is fail-closed:
+
+- root must already exist;
+- production/scheduled copy requires `.inventory-backup-target` on the verified mounted filesystem;
+- missing/unmarked target fails and writes failed health;
+- destination hashes are verified before atomic publish.
+
+Backup names use UTC microseconds and existing snapshots are never overwritten.
+
+Scheduled backups now support strict declared recovery paths through:
+
+```text
+INVENTORY_BACKUP_ARTIFACT_PATHS
+INVENTORY_BACKUP_CONFIG_PATHS
+```
+
+The installed backup service declares the baseline recovery configuration set:
+
+- `/etc/inventory-lite/backup.env`;
+- Web/OCR/Backup systemd units;
+- backup timer;
+- Nginx site configuration.
+
+A declared config path going missing makes the backup fail instead of silently publishing an incomplete recovery bundle. Pre-upgrade off-host backup captures all corresponding configuration that actually exists on the old deployment.
+
+## Required E00 gate
+
+From a real checkout of the implementation branch:
 
 ```bash
 python3 tools/verify_release.py
 ```
 
-Optional stress checks:
-
-```bash
-python3 tools/verify_release.py --include-stress
-```
-
-For a Linux release environment where shell validation is mandatory:
+Linux strict profile:
 
 ```bash
 python3 tools/verify_release.py --require-bash
 ```
 
-Node can likewise be made mandatory with `--require-node` when client-routing validation is part of that release profile.
-
-No required correctness logic is unique to GitHub Actions.
-
-### Backup correctness
-
-The old Linux update flow copied the live WAL-mode database file with `cp -a`. E00 replaces this with SQLite Online Backup API snapshots, then restores the snapshot into a temporary database and runs schema/integrity/smoke checks before deployment proceeds.
-
-### Recovery manifest and off-host copy
-
-Recovery manifests record database/artifact/config paths, sizes and SHA-256 checksums. Verified off-host copy targets a pre-existing mounted path and re-validates destination files before atomically publishing the bundle. Production copy additionally requires the mount sentinel `.inventory-backup-target`.
-
-### Backup scheduling
-
-`tools/run_backup_job.py` is directly executable by an operator, cron or systemd timer. `setup_server.sh` installs a backup service/timer path, but does not enable an operator-unapproved cadence unless `INVENTORY_ENABLE_BACKUP_TIMER=1` is explicitly set. When enablement is requested it first starts the backup service once; failure prevents timer enablement.
-
-## Required E00 verification gate
-
-From a real checkout of `impl/e00-release-safety` run:
+When Node is an agreed release-host dependency:
 
 ```bash
-python3 tools/verify_release.py
+python3 tools/verify_release.py --require-bash --require-node
 ```
 
-The minimum gate must prove:
+Any failure keeps E00 open.
 
-1. required Python source/test files are present and compile;
-2. schema baseline adoption and repeat no-op;
-3. migration from real historical fixture schemas;
-4. rejection of incomplete/unknown/tampered migration state;
-5. SQLite integrity and logical-orphan detection;
-6. isolated backup restore verification;
-7. backup manifest and checksum-tamper detection;
-8. independently schedulable backup job with off-host marker/copy fixture;
-9. existing auth/security regression;
-10. existing core business regression;
-11. existing recognition regression;
-12. existing warehouse-efficiency regression;
-13. Bash deployment-script syntax when Bash is available/required;
-14. JS syntax and client-routing regression when Node is available/required.
+Detailed handoff:
 
-Any failure keeps E00 open. Do not proceed to high-risk stock/reservation schema solely because the files exist.
+`E00_LOCAL_VERIFICATION_HANDOFF.md`
 
-## E01 preparation boundary
+## E01 is now story-ready
 
-E01 design is now prepared in:
+The master E01 design remains:
 
-`projects/INVENTORY_EVOLUTION/output/TASK_INV_IMPL_E01.md`
+`TASK_INV_IMPL_E01.md`
 
-Its status is `DESIGN_READY_IMPLEMENTATION_BLOCKED_BY_E00`. No E01 production code is considered implemented, and no E02 stock schema should start until the E00 local gate passes and PR #3 is reviewed/merged.
-
-After local verification succeeds and PR #3 is reviewed/merged:
+Story contracts are now independently prepared:
 
 ```text
-E00 COMPLETE
- -> E01 Action Policy + Idempotency + Durable Jobs/Outbox
- -> E11-S01/S02 pricing margin terminology/formula safety
- -> E02 Stock Position + Reservation Kernel
+TASK_INV_IMPL_E01_S01.md  Shared API/domain primitives
+TASK_INV_IMPL_E01_S02.md  Action Policy registry
+TASK_INV_IMPL_E01_S03.md  Pilot high-risk routes
+TASK_INV_IMPL_E01_S04.md  Business operation / idempotency
+TASK_INV_IMPL_E01_S05.md  Durable jobs
+TASK_INV_IMPL_E01_S06.md  Worker CLI/service
+TASK_INV_IMPL_E01_S07.md  Retry / dead-letter
+TASK_INV_IMPL_E01_S08.md  Transactional outbox
+TASK_INV_IMPL_E01_S09.md  Correlation propagation
+TASK_INV_IMPL_E01_S10.md  Modular-monolith extraction
+```
+
+Proposed additive migration sequence once E00 is complete:
+
+```text
+Migration 1 = audited E00 baseline adoption
+Migration 2 = business_operations
+Migration 3 = jobs + job_attempts
+Migration 4 = outbox_events
+Migration 5 = operation_logs.correlation_id
+```
+
+No E01 production code should be merged before the E00 gate passes and PR #3 is reviewed/merged.
+
+## Next transition
+
+```text
+E00 real-checkout Release Gate PASS
+ -> review/merge Inventory PR #3
+ -> start E01-S01/S02
+ -> E01-S03 pilot routes
+ -> E01-S04 idempotency
+ -> E01-S05/S06/S07 durable worker
+ -> E01-S08/S09 outbox + correlation
+ -> E01-S10 bounded module extraction
+ -> only then advance toward E02 Stock Position / Reservation Kernel
 ```
