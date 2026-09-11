@@ -13,7 +13,8 @@
 **E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`  
 **E07:** `DESIGN_READY_BLOCKED_BY_E06_GATE`  
 **E08:** `DESIGN_READY_BLOCKED_BY_E07_GATE`  
-**E09:** `DESIGN_READY_BLOCKED_BY_E01_E02_GATES`
+**E09:** `DESIGN_READY_BLOCKED_BY_E01_E02_GATES`  
+**E10:** `DESIGN_READY_BLOCKED_BY_E04_E07_E09_FOUNDATIONS`
 
 External implementation:
 
@@ -81,38 +82,12 @@ python3 tools/verify_release.py --require-bash
 Any failure keeps E00 open. See `E00_LOCAL_VERIFICATION_HANDOFF.md`.
 
 # E01 — core execution primitives prepared
-
-Prepared S01–S10 covering shared context, Action Policy, consequential pilot actions, idempotency, durable jobs, worker/retry/dead-letter, transactional outbox, correlation and bounded module extraction.
-
-Pilot bindings:
-
-```text
-transfer.receive  -> TransferService.receive
-purchase.receive  -> ProcurementService.receive
-shipment.complete -> ShipmentService.complete
-```
-
-Implementation order:
-
-```text
-S01/S02 -> S04 -> S03 -> S05/S06/S07 -> S08/S09 -> S10
-```
-
-See `E01_IMPLEMENTATION_SEQUENCE.md`.
+Prepared S01–S10 covering shared context, Action Policy, consequential pilot actions, idempotency, durable jobs, worker/retry/dead-letter, transactional outbox, correlation and bounded module extraction. See `E01_IMPLEMENTATION_SEQUENCE.md`.
 
 # E11-S01/S02 — pricing safety bridge
-
-Prepared:
-
-```text
-TASK_INV_IMPL_E11_S01.md  Pricing Formula Semantics & Legacy Rule Safety
-TASK_INV_IMPL_E11_S02.md  Floor Price / Deal-price Override Safety
-```
-
-Current `margin_percent` arithmetic is a base/list-price uplift, not target gross-margin pricing. Historical arithmetic must remain compatible while new explicit semantics are added.
+Prepared pricing formula semantics/legacy safety and floor/deal-price override controls. Historical arithmetic remains compatible while new explicit semantics are added.
 
 # E02 — stock truth / reservation kernel prepared
-
 Prepared S01–S07 + `E02_IMPLEMENTATION_SEQUENCE.md`.
 
 ```text
@@ -122,117 +97,72 @@ Reservation = committed promise
 ATP = quantity still promiseable
 ```
 
-Migration is shadow-first, cutover-last. Only final E02 cutover may declare the new stock kernel authoritative. No historical bins/lots/serials/reservations are fabricated.
-
 # E03 — warehouse execution prepared
-
-Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md` covering stable locations, receiving/putaway, typed scan, exact-bin picking, location-aware counts, cycle policies and guided mobile scan. E03 calls E02 for authoritative stock changes.
+Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md` covering stable locations, receiving/putaway, typed scan, exact-bin picking, location-aware counts, cycle policies and guided mobile scan.
 
 # E04 — electronics component master prepared
-
 Prepared S01–S08 + `E04_IMPLEMENTATION_SEQUENCE.md` covering internal part identity, Manufacturer+MPN, Supplier Part, package/footprint, typed parametrics, AML/AVL/substitutes, provenance and component workspace/provider staging.
 
-Critical distinction remains:
-
-```text
-search/candidate similarity != engineering approval
-```
-
 # E05 — controlled engineering configuration prepared
-
 Prepared S01–S08 + `E05_IMPLEMENTATION_SEQUENCE.md` covering part revision, EBOM/refdes, MBOM ancestry, EDA staging/diff, effectivity, ECN/ECO/deviation, controlled documents/firmware/test specs and legacy BOM compatibility/where-used.
 
 # E06 — work order / manufacturing execution prepared
-
 Prepared S01–S08 + `E06_IMPLEMENTATION_SEQUENCE.md` covering WO lifecycle/frozen configuration, requirement snapshot/reservation, kit/pick/issue to WO WIP, overissue/return/scrap, partial output, hold/cancel disposition, controlled substitution and prototype mode.
 
 # E07 — traceability / quality / RF test evidence prepared
+Prepared S01–S09 + `E07_IMPLEMENTATION_SEQUENCE.md` covering lot/serial, quality states, IQC/FQC, NCR/rework, genealogy, released test limits, structured RF measurements/raw artifacts, equipment/calibration and final release/shipment trace.
 
-Prepared S01–S09 + `E07_IMPLEMENTATION_SEQUENCE.md` covering risk-based trace policy, lot/serial identity, quality stock states, IQC/IPQC/FQC, NCR/rework/scrap, WO genealogy, released test limits, structured RF/electrical measurements, raw S2P/spectrum artifacts, equipment/calibration-at-test-time, final quality release, shipment trace and recall impact.
-
-Core evidence chain:
-
-```text
-supplier / receipt
- -> source lot/date code
- -> quality state
- -> E06 WO issue
- -> genealogy
- -> finished serial
- -> exact product/MBOM/firmware
- -> released test limits
- -> structured measurements + raw S2P/spectrum evidence
- -> equipment + calibration-at-test-time
- -> NCR/rework/retest where needed
- -> final quality release
- -> shipment/customer
-```
-
-Before release-critical test evidence becomes authoritative, E00 recovery must include retained raw artifacts/certificates with checksum-verified backup/restore.
-
-# E08 — MRP planning + subcontract / external WIP prepared
-
-Prepared S01–S08 + `E08_IMPLEMENTATION_SEQUENCE.md` covering planning policies, typed dated supply/demand, released MBOM explosion, daily PAB/netting, pegging/exceptions, planner recommendation review/conversion, subcontract external WIP, reconciliation/quality/cost evidence and durable run scheduling.
-
-Planning authority:
-
-```text
-E02/E07 qualified stock + reservations
- + dated PO/WO/transfer/subcontract supply
- + E05 released effective MBOM
- + E06 demand
- + E04 approved source / lead time / MOQ
- -> E08 time-phased netting
- -> explainable recommendation
- -> human review
- -> idempotent E01 conversion to PO/WO/transfer
-```
-
-MRP remains advisory. Subcontracted company-owned material leaves local ATP but remains company-owned external WIP and must reconcile before operational close.
+# E08 — MRP planning + subcontract prepared
+Prepared S01–S08 + `E08_IMPLEMENTATION_SEQUENCE.md` covering planning policy, dated demand/supply, MBOM explosion, time-phased netting, pegging, planner recommendation, external WIP subcontract and durable MRP runs.
 
 # E09 — omnichannel durable reconciliation prepared
+Prepared S01–S08 + `E09_IMPLEMENTATION_SEQUENCE.md` covering external-object identity, SKU mapping lifecycle, remote order revisions, central ATP publication, fulfilment outbox, cancellation/refund policy, reconciliation and connector health/cursors.
+
+# E10 — technical CRM / quotation / service / RMA prepared
 
 Prepared:
 
 ```text
-TASK_INV_IMPL_E09.md      Master contract
-TASK_INV_IMPL_E09_S01.md  External Object Ledger / Account-scoped Identity
-TASK_INV_IMPL_E09_S02.md  SKU Mapping Lifecycle / Conflict / Historical Freeze
-TASK_INV_IMPL_E09_S03.md  Inbound Order Revisions / Remote State Policy
-TASK_INV_IMPL_E09_S04.md  Central ATP / Channel Inventory Publication
-TASK_INV_IMPL_E09_S05.md  Fulfilment Outbox / Remote Acknowledgement
-TASK_INV_IMPL_E09_S06.md  Cancellation / Refund / Return Conflict Policy
-TASK_INV_IMPL_E09_S07.md  Periodic Reconciliation / Mismatch Exceptions
-TASK_INV_IMPL_E09_S08.md  Connector Capability / Cursor / Account Health
-E09_IMPLEMENTATION_SEQUENCE.md
+TASK_INV_IMPL_E10.md      Master contract
+TASK_INV_IMPL_E10_S01.md  Customer / Contact / Opportunity Identity
+TASK_INV_IMPL_E10_S02.md  Technical Requirements / Product Candidate Evaluation
+TASK_INV_IMPL_E10_S03.md  Revisioned Quotation / Approval / Quote-to-Order
+TASK_INV_IMPL_E10_S04.md  Sample / Evaluation Lifecycle
+TASK_INV_IMPL_E10_S05.md  Customer Service Case / SLA / Timeline
+TASK_INV_IMPL_E10_S06.md  RMA Intake / Return Quarantine / Warranty Decision
+TASK_INV_IMPL_E10_S07.md  Diagnosis / Repair / Retest / Exchange / Refund
+TASK_INV_IMPL_E10_S08.md  Follow-up Automation / Templates / Feedback Loop
+E10_IMPLEMENTATION_SEQUENCE.md
 ```
 
-Core chain:
+Customer lifecycle:
 
 ```text
-remote observation
- -> account-scoped external object identity
- -> mapping + canonical order transition
- -> E02 reservation / ATP
- -> desired channel inventory / local shipment
- -> E01 outbox + connector worker
- -> remote acknowledgement
- -> periodic reconciliation
+customer/contact
+ -> inquiry/opportunity
+ -> structured RF/electronics requirements
+ -> existing/custom candidate
+ -> immutable quotation revision
+ -> sample/evaluation
+ -> accepted quote/order
+ -> service case
+ -> RMA/refund/repair/exchange
+ -> quality/product feedback
 ```
 
 Critical invariants:
 
-- existing `ORDER_ADAPTERS`, platform accounts and SKU mappings are evolved rather than discarded;
-- replaying the same remote observation never duplicates canonical orders/actions;
-- shops on the same platform are isolated by account identity;
-- mapping changes do not rewrite historical order-line identity;
-- late remote changes cannot overwrite committed shipment truth;
-- connectors never derive authoritative stock independently from raw inventory rows;
-- desired remote stock and acknowledged remote stock remain separate evidence;
-- local shipment commits before remote fulfilment side effect; remote outage never rewrites local stock history;
-- refund does not imply physical return/restock;
-- reconciliation surfaces disagreement instead of silently picking a winner;
-- connector runtime uses E01 durable jobs/systemd-owned services, never GitHub Actions.
+- marketplace receiver text is not automatically a durable customer master;
+- parametric similarity does not create an engineering/commercial promise;
+- sent/accepted quote revisions are immutable and order conversion preserves the exact accepted revision;
+- sample/loan/gift dispositions use explicit stock semantics;
+- `ExceptionService` remains internal operational exception engine; service cases are separate and linked;
+- refund, physical return, repair/diagnosis and warranty decisions are distinct lifecycles;
+- returned product enters quarantine, never direct ATP;
+- serialized RMA resolves original shipment/product/WO/test history;
+- failed tests remain visible after repair/retest;
+- exchange preserves original and replacement serials;
+- reminders run through E01 server-owned jobs, never GitHub Actions.
 
 # Current transition path
 
@@ -252,10 +182,10 @@ E01 core execution primitives
  -> E07 traceability/quality/RF test evidence
  -> E08 MRP/subcontract
  -> E09 omnichannel reconciliation
+ -> E10 technical CRM/after-sales
 
 NEXT DESIGN WAVES
-E10 CRM/quote/sample/support/RMA
- -> E11 remaining channel economics/manufacturing actual cost
+E11 remaining channel economics/manufacturing actual cost
  -> E12 reporting/product intelligence
  -> E13 safe automation rules
  -> E14 evidence-bound AI Copilot
@@ -263,7 +193,4 @@ E10 CRM/quote/sample/support/RMA
 ```
 
 ## Hard stop
-
-No E01/E11/E02/E03/E04/E05/E06/E07/E08/E09 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
-
-Planning may continue; production authority may not.
+No E01–E10 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`. Planning may continue; production authority may not.
