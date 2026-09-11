@@ -12,7 +12,8 @@
 **E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`  
 **E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`  
 **E07:** `DESIGN_READY_BLOCKED_BY_E06_GATE`  
-**E08:** `DESIGN_READY_BLOCKED_BY_E07_GATE`
+**E08:** `DESIGN_READY_BLOCKED_BY_E07_GATE`  
+**E09:** `DESIGN_READY_BLOCKED_BY_E01_E02_GATES`
 
 External implementation:
 
@@ -171,20 +172,7 @@ Before release-critical test evidence becomes authoritative, E00 recovery must i
 
 # E08 — MRP planning + subcontract / external WIP prepared
 
-Prepared:
-
-```text
-TASK_INV_IMPL_E08.md      Master contract
-TASK_INV_IMPL_E08_S01.md  Planning Policy & Approved Sourcing Inputs
-TASK_INV_IMPL_E08_S02.md  Typed Dated Demand & Supply Projection
-TASK_INV_IMPL_E08_S03.md  Released MBOM Explosion & Dependent Demand
-TASK_INV_IMPL_E08_S04.md  Daily Netting / PAB / Pegging / Exceptions
-TASK_INV_IMPL_E08_S05.md  Planner Recommendation Review / Conversion
-TASK_INV_IMPL_E08_S06.md  Subcontract Order / Consigned Material / External WIP
-TASK_INV_IMPL_E08_S07.md  Subcontract Return / Reconciliation / Quality / Cost Evidence
-TASK_INV_IMPL_E08_S08.md  MRP Run Lifecycle / Scheduler / Exception Workbench
-E08_IMPLEMENTATION_SEQUENCE.md
-```
+Prepared S01–S08 + `E08_IMPLEMENTATION_SEQUENCE.md` covering planning policies, typed dated supply/demand, released MBOM explosion, daily PAB/netting, pegging/exceptions, planner recommendation review/conversion, subcontract external WIP, reconciliation/quality/cost evidence and durable run scheduling.
 
 Planning authority:
 
@@ -200,17 +188,51 @@ E02/E07 qualified stock + reservations
  -> idempotent E01 conversion to PO/WO/transfer
 ```
 
-E08 invariants:
+MRP remains advisory. Subcontracted company-owned material leaves local ATP but remains company-owned external WIP and must reconcile before operational close.
 
-- MRP is not a low-stock formula and does not equate physical on-hand with nettable supply;
-- only released/effective manufacturing configuration is exploded;
-- every demand/supply row is dated and source-linked;
-- recommendations preserve pegging and calculation evidence;
-- no automatic PO/WO/substitute authority is implied by planning output;
-- company-owned material at subcontractor leaves local ATP but remains visible as company-owned external WIP;
-- subcontract close requires sent quantities to reconcile to consumed/returned/loss/scrap/approved variance;
-- returned subcontract output follows E07 quality/genealogy;
-- scheduled MRP execution uses E01 durable jobs/systemd-owned runtime, never GitHub Actions.
+# E09 — omnichannel durable reconciliation prepared
+
+Prepared:
+
+```text
+TASK_INV_IMPL_E09.md      Master contract
+TASK_INV_IMPL_E09_S01.md  External Object Ledger / Account-scoped Identity
+TASK_INV_IMPL_E09_S02.md  SKU Mapping Lifecycle / Conflict / Historical Freeze
+TASK_INV_IMPL_E09_S03.md  Inbound Order Revisions / Remote State Policy
+TASK_INV_IMPL_E09_S04.md  Central ATP / Channel Inventory Publication
+TASK_INV_IMPL_E09_S05.md  Fulfilment Outbox / Remote Acknowledgement
+TASK_INV_IMPL_E09_S06.md  Cancellation / Refund / Return Conflict Policy
+TASK_INV_IMPL_E09_S07.md  Periodic Reconciliation / Mismatch Exceptions
+TASK_INV_IMPL_E09_S08.md  Connector Capability / Cursor / Account Health
+E09_IMPLEMENTATION_SEQUENCE.md
+```
+
+Core chain:
+
+```text
+remote observation
+ -> account-scoped external object identity
+ -> mapping + canonical order transition
+ -> E02 reservation / ATP
+ -> desired channel inventory / local shipment
+ -> E01 outbox + connector worker
+ -> remote acknowledgement
+ -> periodic reconciliation
+```
+
+Critical invariants:
+
+- existing `ORDER_ADAPTERS`, platform accounts and SKU mappings are evolved rather than discarded;
+- replaying the same remote observation never duplicates canonical orders/actions;
+- shops on the same platform are isolated by account identity;
+- mapping changes do not rewrite historical order-line identity;
+- late remote changes cannot overwrite committed shipment truth;
+- connectors never derive authoritative stock independently from raw inventory rows;
+- desired remote stock and acknowledged remote stock remain separate evidence;
+- local shipment commits before remote fulfilment side effect; remote outage never rewrites local stock history;
+- refund does not imply physical return/restock;
+- reconciliation surfaces disagreement instead of silently picking a winner;
+- connector runtime uses E01 durable jobs/systemd-owned services, never GitHub Actions.
 
 # Current transition path
 
@@ -229,10 +251,10 @@ E01 core execution primitives
  -> E06 work-order execution
  -> E07 traceability/quality/RF test evidence
  -> E08 MRP/subcontract
+ -> E09 omnichannel reconciliation
 
 NEXT DESIGN WAVES
-E09 omnichannel/ATP/external-object reconciliation
- -> E10 CRM/quote/sample/support/RMA
+E10 CRM/quote/sample/support/RMA
  -> E11 remaining channel economics/manufacturing actual cost
  -> E12 reporting/product intelligence
  -> E13 safe automation rules
@@ -242,6 +264,6 @@ E09 omnichannel/ATP/external-object reconciliation
 
 ## Hard stop
 
-No E01/E11/E02/E03/E04/E05/E06/E07/E08 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04/E05/E06/E07/E08/E09 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
