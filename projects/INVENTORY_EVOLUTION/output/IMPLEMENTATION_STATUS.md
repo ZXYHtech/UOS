@@ -3,11 +3,12 @@
 ## Current state
 
 **Phase:** E00 Release Safety / Migration / Recovery Foundation  
-**E00 implementation:** `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`  
+**E00:** `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`  
 **E01:** `DESIGN_READY_BLOCKED_BY_E00_GATE`  
-**E11-S01/S02 early bridge:** `DESIGN_READY_BLOCKED_BY_E01`  
+**E11-S01/S02:** `DESIGN_READY_BLOCKED_BY_E01`  
 **E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`  
-**E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`
+**E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`  
+**E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`
 
 External implementation:
 
@@ -26,44 +27,41 @@ Do **not** claim the production DB has already been backed up; production backup
 
 See `PRODUCTION_CHANGE_SAFETY_POLICY.md`.
 
-Current contract:
-
 ```text
 frozen pre-audit Git source
  -> confirm production DB exists
- -> require existing git/python3 bootstrap tools
- -> clone target into /tmp only
+ -> clone target into /tmp using existing bootstrap tools
  -> narrow compile gate for backup/recovery tooling
- -> snapshot exact currently deployed server code
+ -> snapshot exact deployed server code
  -> consistent SQLite production snapshot
- -> isolated DB restore verification
+ -> isolated restore verification
  -> manifest/checksums
- -> off-host Recovery Bundle when configured/required
+ -> off-host Recovery Bundle when configured
  -> stop backup/OCR/Web writers
- -> only now allow apt/pip runtime changes
- -> full repository Release Gate
+ -> only then allow apt/pip changes
+ -> full Release Gate
  -> rsync target code
  -> numbered migration + integrity postflight
  -> restart + health
 ```
 
-`INVENTORY_PREFLIGHT_ONLY=1` executes fresh backup/recovery proof and the target Release Gate on currently installed dependencies, then exits before apt/pip, service stop, code sync or production schema migration.
+`INVENTORY_PREFLIGHT_ONLY=1` performs backup/recovery proof and target gate using current dependencies, then exits before dependency/runtime/schema changes.
 
-## E00 coverage
+# E00 — implemented, runtime gate still required
 
-| Story | Code | Runtime validation | Evidence |
-|---|---|---|---|
-| E00-S01 migration registry/baseline adoption | Implemented | Awaiting real checkout | `TASK_INV_IMPL_E00_S01.md` |
-| E00-S02 historical DB fixtures | Implemented | Awaiting real checkout | `TASK_INV_IMPL_E00_S02.md` |
-| E00-S03 integrity/orphan checks | Implemented + expanded | Awaiting real checkout | `TASK_INV_IMPL_E00_S03.md` |
-| E00-S04 authoritative Release Gate | Implemented + fail-closed | Awaiting real checkout | `TASK_INV_IMPL_E00_S04.md` |
-| E00-S05 isolated restore verification | Implemented + transaction-aligned | Awaiting real checkout | `TASK_INV_IMPL_E00_S05.md` |
-| E00-S06 recovery manifest/checksums/config | Implemented + expanded | Awaiting real checkout | `TASK_INV_IMPL_E00_S06.md` |
-| E00-S07 off-host copy/health/scheduler | Implemented + fail-closed | Awaiting real checkout | `TASK_INV_IMPL_E00_S07.md` |
+Coverage:
 
-## Required E00 gate
+```text
+E00-S01 migration registry / baseline adoption
+E00-S02 historical DB fixtures
+E00-S03 integrity / orphan checks
+E00-S04 authoritative local Release Gate
+E00-S05 isolated restore verification
+E00-S06 recovery manifest / checksums / config
+E00-S07 off-host copy / health / scheduler
+```
 
-From a real checkout of `impl/e00-release-safety` at the current reviewed head:
+Required real-checkout command:
 
 ```bash
 python3 tools/verify_release.py
@@ -75,32 +73,26 @@ Linux strict profile:
 python3 tools/verify_release.py --require-bash
 ```
 
-When Node is an agreed release-host dependency:
+Any failure keeps E00 open. See `E00_LOCAL_VERIFICATION_HANDOFF.md`.
 
-```bash
-python3 tools/verify_release.py --require-bash --require-node
-```
+# E01 — core execution primitives prepared
 
-Any failure keeps E00 open. Detailed handoff: `E00_LOCAL_VERIFICATION_HANDOFF.md`.
-
-# E01 — prepared but blocked
-
-Prepared stories:
+Prepared S01–S10 covering:
 
 ```text
-TASK_INV_IMPL_E01_S01.md  Shared API/domain primitives
-TASK_INV_IMPL_E01_S02.md  Action Policy registry
-TASK_INV_IMPL_E01_S03.md  Pilot high-risk routes
-TASK_INV_IMPL_E01_S04.md  Business operation / idempotency
-TASK_INV_IMPL_E01_S05.md  Durable jobs
-TASK_INV_IMPL_E01_S06.md  Worker CLI/service
-TASK_INV_IMPL_E01_S07.md  Retry / dead-letter / manual-review
-TASK_INV_IMPL_E01_S08.md  Transactional outbox
-TASK_INV_IMPL_E01_S09.md  Correlation propagation
-TASK_INV_IMPL_E01_S10.md  Modular-monolith extraction
+shared context/errors
+Action Policy
+pilot consequential actions
+business-operation idempotency
+durable jobs
+worker service
+retry/dead-letter/manual review
+transactional outbox
+correlation IDs
+bounded modular-monolith extraction
 ```
 
-Pilot bindings to existing business services:
+Pilot bindings:
 
 ```text
 transfer.receive  -> TransferService.receive
@@ -108,34 +100,20 @@ purchase.receive  -> ProcurementService.receive
 shipment.complete -> ShipmentService.complete
 ```
 
-Implementation order is intentionally:
+Implementation order:
 
 ```text
 S01/S02
- -> S04 idempotency primitive
- -> S03 consequential pilots
- -> S05/S06/S07 durable worker/retry
- -> S08/S09 outbox/correlation
- -> S10 bounded extraction
+ -> S04
+ -> S03
+ -> S05/S06/S07
+ -> S08/S09
+ -> S10
 ```
 
-`E01_IMPLEMENTATION_SEQUENCE.md` defines the small-PR merge/gate strategy.
+See `E01_IMPLEMENTATION_SEQUENCE.md`.
 
-Proposed E01 migrations after E00:
-
-```text
-Migration 1 = audited E00 baseline adoption
-Migration 2 = business_operations
-Migration 3 = jobs + job_attempts
-Migration 4 = outbox_events
-Migration 5 = operation_logs.correlation_id
-```
-
-Exact later migration numbers must follow the actual contiguous merged history rather than design-document guesses.
-
-# E11-S01/S02 — early pricing safety bridge
-
-The master project plan explicitly places limited pricing safety before the stock-kernel rewrite.
+# E11-S01/S02 — pricing safety bridge
 
 Prepared:
 
@@ -144,36 +122,13 @@ TASK_INV_IMPL_E11_S01.md  Pricing Formula Semantics & Legacy Rule Safety
 TASK_INV_IMPL_E11_S02.md  Floor Price / Deal-price Override Safety
 ```
 
-Confirmed current risk:
+Confirmed current `margin_percent` arithmetic is a base/list-price uplift, not target gross-margin pricing. Historical arithmetic must remain compatible while new explicit semantics are added.
 
-```text
-PricingService result_type='margin_percent'
-currently computes list_price * (1 + percent/100)
-```
+# E02 — stock truth / reservation kernel prepared
 
-This is a base/list-price uplift, not target gross-margin pricing.
+Prepared S01–S07 + `E02_IMPLEMENTATION_SEQUENCE.md`.
 
-S01 therefore preserves historical arithmetic for legacy stored rules while introducing explicit new semantics. S02 strengthens existing deal-price revision history with server-side floor resolution, dedicated override authority, reason and evidence.
-
-Do not build full order economics/settlement early; this bridge is only formula terminology + floor safety.
-
-# E02 — fully decomposed design, runtime blocked
-
-Prepared master/story set:
-
-```text
-TASK_INV_IMPL_E02.md      Stock Position / Movement / Reservation master contract
-TASK_INV_IMPL_E02_S01.md  Canonical Stock Identity & Quantity/UOM
-TASK_INV_IMPL_E02_S02.md  Movement Operation/Line Ledger & Reversal
-TASK_INV_IMPL_E02_S03.md  Balance Projection / Shadow / Reconciliation
-TASK_INV_IMPL_E02_S04.md  Reservation Lifecycle & ATP
-TASK_INV_IMPL_E02_S05.md  Order / Shipment Reservation Integration
-TASK_INV_IMPL_E02_S06.md  Transfer / Procurement / Manual-adjust Migration
-TASK_INV_IMPL_E02_S07.md  Authoritative Cutover / Legacy-write Retirement
-E02_IMPLEMENTATION_SEQUENCE.md
-```
-
-E02 core architecture:
+Core contract:
 
 ```text
 Movement Ledger = why/how stock changed
@@ -182,120 +137,110 @@ Reservation = committed promise
 ATP = quantity still promiseable
 ```
 
-Confirmed legacy reasons for redesign:
-
-- current stock identity excludes `location_id`;
-- nullable `platform_account_id` weakens logical uniqueness;
-- `adjust_inventory()` is read/compute/update plus `inventory_logs` rather than canonical movement-operation identity;
-- no first-class order reservation links committed demand to quantity;
-- `quantity_locked` / `quantity_on_transfer` cannot substitute for durable business-linked reservations/movements.
-
-E02 uses a **shadow-first, cutover-last** migration:
+Migration is shadow-first, cutover-last:
 
 ```text
 identity mapping
  -> additive movement ledger
- -> opening balance + balance projection
+ -> opening balance/projection
  -> same-transaction shadow posting
- -> reconciliation/parity window
+ -> reconciliation
  -> reservation/ATP
  -> order/shipment integration
- -> transfer/procurement/manual-adjust integration
+ -> transfer/procurement/manual adjustment
  -> final cutover
- -> fence direct legacy writes
+ -> fence legacy direct writes
 ```
 
-Only E02-S07 / Slice J may declare the new stock kernel authoritative.
+Only final E02 cutover may declare the new stock kernel authoritative. No historical bins/lots/serials/reservations are fabricated.
 
-No historical bins/lots/serials/reservations are fabricated during migration.
+# E03 — warehouse execution prepared
 
-# E03 — warehouse execution design ready, runtime blocked
-
-Prepared:
+Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md`:
 
 ```text
-TASK_INV_IMPL_E03.md      Warehouse execution master contract
-TASK_INV_IMPL_E03_S01.md  Stable Warehouse Location Identity
-TASK_INV_IMPL_E03_S02.md  Receiving Staging and Putaway
-TASK_INV_IMPL_E03_S03.md  Typed Scan Resolution
-TASK_INV_IMPL_E03_S04.md  Exact Bin Allocation and Scan-first Picking
-TASK_INV_IMPL_E03_S05.md  Location-aware Count Observation and Reconciliation
-TASK_INV_IMPL_E03_S06.md  Cycle Count and Simple Warehouse Policies
-TASK_INV_IMPL_E03_S07.md  Mobile / Handheld Scan Execution UX
-E03_IMPLEMENTATION_SEQUENCE.md
+stable warehouse location identity
+receiving staging + putaway
+typed scan resolver
+exact-bin allocation / scan-first picking
+location-aware count observation/reconciliation
+cycle count + simple policies
+mobile/handheld guided scan UX
 ```
 
-Existing strengths are intentionally reused:
-
-- `warehouse_locations` / `warehouse_layout_items`;
-- shipment scan evidence;
-- `inventory_count_sessions` / `inventory_count_items`;
-- the existing material code/alias/barcode/QR matcher;
-- current count approval behavior that posts variance through the inventory mutation path rather than directly overwriting a balance.
-
-E03 architecture:
+Architecture:
 
 ```text
 E03 task / scan / observation
- -> validates warehouse execution
- -> calls E02 reservation/movement contract
+ -> validates execution
+ -> calls E02 reservation/movement
  -> E02 remains sole stock truth
-```
-
-Target inbound flow:
-
-```text
-PO / transfer receipt
- -> receiving/staging location
- -> putaway task
- -> exact storage bin
-```
-
-Target outbound flow:
-
-```text
-E02 reservation
- -> exact bin allocation
- -> scan location/material
- -> pick evidence
- -> E02 reservation consumption + shipment movement
-```
-
-Target count flow:
-
-```text
-count task
- -> physical observation by location/material
- -> variance review
- -> approved E02 adjustment movement
 ```
 
 Important boundaries:
 
-- scan resolver identifies; it never directly changes stock;
-- `warehouse_layout_items` remains visual projection, not identity/stock truth;
-- lot/serial/quality-state authority remains E07;
-- no wave/cluster picking, cartonization, slotting AI or MFC in E03 P0;
-- exact E03 migration numbers are assigned only after E01/E02/E11 merged history is known.
+- scan identifies; it never directly mutates stock;
+- layout is visual projection, not location identity;
+- lot/serial/quality authority remains E07;
+- no wave/cluster/cartonization/slotting-AI/MFC in P0.
 
-Pure location/scan infrastructure may begin only after E02 location/stock identity is frozen. Stock-mutating putaway/pick/count execution remains blocked until the relevant E02 movement/balance contracts are authoritative and locally verified.
+# E04 — electronics component master prepared
+
+Prepared:
+
+```text
+TASK_INV_IMPL_E04.md      Master contract
+TASK_INV_IMPL_E04_S01.md  Internal Part Identity Compatibility
+TASK_INV_IMPL_E04_S02.md  Manufacturer + MPN Identity
+TASK_INV_IMPL_E04_S03.md  Supplier Part / Sourcing Identity
+TASK_INV_IMPL_E04_S04.md  Package + Footprint Identity
+TASK_INV_IMPL_E04_S05.md  Typed Parametric Attributes + Units
+TASK_INV_IMPL_E04_S06.md  AML/AVL Approval + Internal Substitutes
+TASK_INV_IMPL_E04_S07.md  Lifecycle/Compliance/Provenance
+TASK_INV_IMPL_E04_S08.md  Component Search/Workspace/Provider Staging
+E04_IMPLEMENTATION_SEQUENCE.md
+```
+
+Canonical identity decision:
+
+```text
+materials.id            = internal part identity
+materials.material_code = internal part number
+manufacturer_parts      = Manufacturer + MPN identity
+supplier_parts          = supplier-scoped SKU/source identity
+platform_sku_mappings   = sales/channel identity
+```
+
+Critical safety distinctions:
+
+```text
+alias != approved manufacturer part
+MPN existence != AML approval
+supplier availability != engineering approval
+parametric similarity != substitute authority
+provider confidence != canonical truth
+```
+
+Manufacturer-part identity is separated from AML approval. Internal substitutes are directional and controlled. Package is distinct from PCB footprint. Typed parameters preserve requirement-vs-source scope and provenance. Provider enrichment creates staged candidates/diffs, never autonomous approval or purchasing.
+
+E04 runtime waits for E03 gate. Exact migration numbers are assigned only from then-current merged history.
 
 # Current transition path
 
 ```text
-NOW:
+NOW
 E00 real-checkout Release Gate PASS
  -> review/merge Inventory PR #3
 
-THEN:
-E01 small PRs
+THEN
+E01 core execution primitives
  -> E11-S01/S02 pricing safety
- -> E02 shadow-first stock kernel
- -> E03 location / staging / putaway / scan / pick / count
+ -> E02 stock truth/reservation
+ -> E03 warehouse execution
+ -> E04 electronics part identity/AVL
 
-LATER:
-E04 electronic part identity
- -> E05 controlled EBOM/MBOM/revision
+LATER
+E05 controlled EBOM/MBOM/revision/ECN
  -> E06 work orders
  -> E07 lot/serial/quality/RF test evidence
  -> E08 MRP/subcontract
@@ -304,6 +249,6 @@ E04 electronic part identity
 
 ## Hard stop
 
-No E01/E11/E02/E03 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
