@@ -5,8 +5,7 @@
 **Phase:** E00 Release Safety / Migration / Recovery Foundation  
 **E00:** `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`  
 **E01:** `DESIGN_READY_BLOCKED_BY_E00_GATE`  
-**E11-S01/S02:** `DESIGN_READY_BLOCKED_BY_E01`  
-**E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`  
+**E02:** `DESIGN_READY_BLOCKED_BY_E01_E11_EARLY_GATES`  
 **E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`  
 **E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`  
 **E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`  
@@ -16,7 +15,8 @@
 **E09:** `DESIGN_READY_BLOCKED_BY_E01_E02_GATES`  
 **E10:** `DESIGN_READY_BLOCKED_BY_E04_E07_E09_FOUNDATIONS`  
 **E11:** `DESIGN_READY_SPLIT_EARLY_AND_LATE`  
-**E12:** `DESIGN_READY_BLOCKED_BY_DOMAIN_EVIDENCE`
+**E12:** `DESIGN_READY_BLOCKED_BY_DOMAIN_EVIDENCE`  
+**E13:** `DESIGN_READY_BLOCKED_BY_E01_DOMAIN_COMMANDS`
 
 External implementation:
 - repo: `ZXYHtech/inventory`
@@ -25,97 +25,58 @@ External implementation:
 - E00 implementation branch: `impl/e00-release-safety`
 - reviewed E00 head: `0e0870499f7e8b5e68a308231eae954f106bd5aa`
 - PR: `ZXYHtech/inventory#3`
-- latest connector state checked 2026-09-11: `open`, `draft=true`, `mergeable=true`, `merged=false`
 
-Do **not** mark E00 complete until the repository-local Release Gate is executed from a real checkout. Do **not** claim the production DB has already been backed up; production backup evidence exists only after the production host (or authorized copy) actually runs the preflight/update path.
+Production rule remains unchanged: no runtime wave is merged while E00 is awaiting the real repository-local Release Gate, and every future production change first performs server-code snapshot + consistent DB backup + isolated restore proof.
 
-## Mandatory production-change protection
-See `PRODUCTION_CHANGE_SAFETY_POLICY.md`. Every production change still requires frozen source evidence, current server-code snapshot, consistent DB backup, isolated restore verification, manifest/checksums, optional off-host Recovery Bundle, local Release Gate, numbered migration/integrity postflight and health verification.
-
-# E00 — implemented, runtime gate still required
-Coverage: E00-S01..S07. Required real-checkout commands:
-
-```bash
-python3 tools/verify_release.py
-python3 tools/verify_release.py --require-bash
-```
-
-# E01 — core execution primitives prepared
-Prepared S01–S10 + `E01_IMPLEMENTATION_SEQUENCE.md`.
-
-# E02 — stock truth / reservation kernel prepared
-Prepared S01–S07 + `E02_IMPLEMENTATION_SEQUENCE.md`.
-
-# E03 — warehouse execution prepared
-Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md`.
-
-# E04 — electronics component master prepared
-Prepared S01–S08 + `E04_IMPLEMENTATION_SEQUENCE.md`.
-
-# E05 — controlled engineering configuration prepared
-Prepared S01–S08 + `E05_IMPLEMENTATION_SEQUENCE.md`.
-
-# E06 — work order / manufacturing execution prepared
-Prepared S01–S08 + `E06_IMPLEMENTATION_SEQUENCE.md`.
-
-# E07 — traceability / quality / RF test evidence prepared
-Prepared S01–S09 + `E07_IMPLEMENTATION_SEQUENCE.md`.
-
-# E08 — MRP planning + subcontract prepared
-Prepared S01–S08 + `E08_IMPLEMENTATION_SEQUENCE.md`.
-
-# E09 — omnichannel durable reconciliation prepared
-Prepared S01–S08 + `E09_IMPLEMENTATION_SEQUENCE.md`.
-
-# E10 — technical CRM / quotation / service / RMA prepared
-Prepared S01–S08 + `E10_IMPLEMENTATION_SEQUENCE.md`.
-
-# E11 — pricing safety, cost and realized economics prepared
-Prepared S01–S08 + `E11_IMPLEMENTATION_SEQUENCE.md`.
-
-Early wave after E01:
+# Prepared implementation waves
 
 ```text
-S01 pricing semantics
- -> S02 floor/override safety
+E01  shared context / Action Policy / idempotency / jobs / outbox / correlation
+E11 early  pricing semantics + floor/override safety
+E02  stock ledger / balance / reservation / ATP
+E03  warehouse locations / staging / scan / pick / count
+E04  electronics part / MPN / Supplier Part / parametrics / AVL
+E05  part revision / EBOM / MBOM / ECN / controlled docs
+E06  work orders / WIP / issue-return-scrap / partial output / prototype
+E07  lot-serial / quality / NCR / RF test / calibration / release trace
+E08  MRP / pegging / recommendations / subcontract external WIP
+E09  omnichannel external-object / ATP publication / reconciliation
+E10  technical CRM / quote / samples / service case / RMA
+E11 late  standard cost / WO actual cost / economics / settlement / contribution
+E12  governed metrics / cockpit / product intelligence
+E13  safe rules automation
 ```
 
-Late wave after E05-E10:
+Each wave has a master contract, story-level task files and an implementation-sequence file.
 
-```text
-S03 released standard cost
- -> S04 WO actual cost close
- -> S05 variance classification
- -> S06 order economic events
- -> S07 settlement reconciliation
- -> S08 realized contribution/evidence quality
-```
-
-# E12 — governed reporting / management cockpit / product intelligence prepared
+# E13 — safe automation rules prepared
 
 Prepared:
 
 ```text
-TASK_INV_IMPL_E12.md      Master contract
-TASK_INV_IMPL_E12_S01.md  Metric Registry / Lineage / Evidence Quality
-TASK_INV_IMPL_E12_S02.md  Reporting Read Models / Snapshots / Drill-down
-TASK_INV_IMPL_E12_S03.md  Exception-first Management Cockpit / Action Loop
-TASK_INV_IMPL_E12_S04.md  Product Hierarchy / Transparent Portfolio Scorecard
-TASK_INV_IMPL_E12_S05.md  Supply-Manufacturing-Quality Risk Roll-up / Archetypes
-TASK_INV_IMPL_E12_S06.md  Scheduled Reports / Role Scope / Reporting Operations
-E12_IMPLEMENTATION_SEQUENCE.md
+TASK_INV_IMPL_E13.md
+TASK_INV_IMPL_E13_S01.md  Business Event / Rule Identity
+TASK_INV_IMPL_E13_S02.md  Structured Condition Language
+TASK_INV_IMPL_E13_S03.md  Action Registry / Risk / Approval Policy
+TASK_INV_IMPL_E13_S04.md  Observe-only Simulation / Enablement
+TASK_INV_IMPL_E13_S05.md  Durable Execution / Idempotency / Compensation
+TASK_INV_IMPL_E13_S06.md  Loop Prevention / Kill Switch / Circuit Breakers
+TASK_INV_IMPL_E13_S07.md  Ownership / Observability / Periodic Review
+E13_IMPLEMENTATION_SEQUENCE.md
 ```
 
-Critical invariants:
+Critical automation invariants:
 
-- current operator action board remains separate from management cockpit;
-- one KPI has one versioned governed definition across all pages;
-- missing/weak evidence is labeled, never converted to a fake zero or precise percentage;
-- aggregate metrics drill into source records;
-- read models/snapshots are projections, not write authority;
-- product intelligence starts as transparent multi-dimensional evidence, not one black-box score;
-- product/revision risk identifies specific components/events behind the risk;
-- scheduled reporting uses E01/server-owned jobs and server-side permission scope, never GitHub Actions.
+- no arbitrary SQL/Python/shell rule execution;
+- rules call normal domain commands rather than tables;
+- A0/A1 read/draft/notify actions are preferred first;
+- A2 reversible mutations require explicit policy and compensation;
+- A3 high-consequence actions default to human approval;
+- every rule/action is versioned, idempotent and explainable;
+- high-impact rules start in observe-only mode;
+- loop/rate/depth/circuit-breaker controls exist before broad rollout;
+- global/domain/rule pause does not disable manual core operations;
+- scheduling uses E01 durable jobs/systemd/cron, never GitHub Actions.
 
 # Current transition path
 
@@ -138,12 +99,12 @@ E01
  -> E10
  -> E11-S03..S08
  -> E12
+ -> E13
 
 NEXT DESIGN WAVES
-E13 safe automation rules
- -> E14 evidence-bound AI Copilot
+E14 evidence-bound AI Copilot
  -> E15 conditional scale/PostgreSQL
 ```
 
 ## Hard stop
-No E01–E12 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`. Planning may continue; production authority may not.
+No E01–E13 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`. Planning may continue; production authority may not.
