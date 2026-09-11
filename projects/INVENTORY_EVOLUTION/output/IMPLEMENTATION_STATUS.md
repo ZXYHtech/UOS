@@ -8,7 +8,8 @@
 **E11-S01/S02:** `DESIGN_READY_BLOCKED_BY_E01`  
 **E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`  
 **E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`  
-**E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`
+**E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`  
+**E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`
 
 External implementation:
 
@@ -77,20 +78,7 @@ Any failure keeps E00 open. See `E00_LOCAL_VERIFICATION_HANDOFF.md`.
 
 # E01 — core execution primitives prepared
 
-Prepared S01–S10 covering:
-
-```text
-shared context/errors
-Action Policy
-pilot consequential actions
-business-operation idempotency
-durable jobs
-worker service
-retry/dead-letter/manual review
-transactional outbox
-correlation IDs
-bounded modular-monolith extraction
-```
+Prepared S01–S10 covering shared context, Action Policy, consequential pilot actions, idempotency, durable jobs, worker/retry/dead-letter, transactional outbox, correlation and bounded module extraction.
 
 Pilot bindings:
 
@@ -103,12 +91,7 @@ shipment.complete -> ShipmentService.complete
 Implementation order:
 
 ```text
-S01/S02
- -> S04
- -> S03
- -> S05/S06/S07
- -> S08/S09
- -> S10
+S01/S02 -> S04 -> S03 -> S05/S06/S07 -> S08/S09 -> S10
 ```
 
 See `E01_IMPLEMENTATION_SEQUENCE.md`.
@@ -122,13 +105,11 @@ TASK_INV_IMPL_E11_S01.md  Pricing Formula Semantics & Legacy Rule Safety
 TASK_INV_IMPL_E11_S02.md  Floor Price / Deal-price Override Safety
 ```
 
-Confirmed current `margin_percent` arithmetic is a base/list-price uplift, not target gross-margin pricing. Historical arithmetic must remain compatible while new explicit semantics are added.
+Current `margin_percent` arithmetic is a base/list-price uplift, not target gross-margin pricing. Historical arithmetic must remain compatible while new explicit semantics are added.
 
 # E02 — stock truth / reservation kernel prepared
 
 Prepared S01–S07 + `E02_IMPLEMENTATION_SEQUENCE.md`.
-
-Core contract:
 
 ```text
 Movement Ledger = why/how stock changed
@@ -137,22 +118,7 @@ Reservation = committed promise
 ATP = quantity still promiseable
 ```
 
-Migration is shadow-first, cutover-last:
-
-```text
-identity mapping
- -> additive movement ledger
- -> opening balance/projection
- -> same-transaction shadow posting
- -> reconciliation
- -> reservation/ATP
- -> order/shipment integration
- -> transfer/procurement/manual adjustment
- -> final cutover
- -> fence legacy direct writes
-```
-
-Only final E02 cutover may declare the new stock kernel authoritative. No historical bins/lots/serials/reservations are fabricated.
+Migration is shadow-first, cutover-last. Only final E02 cutover may declare the new stock kernel authoritative. No historical bins/lots/serials/reservations are fabricated.
 
 # E03 — warehouse execution prepared
 
@@ -168,40 +134,13 @@ cycle count + simple policies
 mobile/handheld guided scan UX
 ```
 
-Architecture:
-
-```text
-E03 task / scan / observation
- -> validates execution
- -> calls E02 reservation/movement
- -> E02 remains sole stock truth
-```
-
-Important boundaries:
-
-- scan identifies; it never directly mutates stock;
-- layout is visual projection, not location identity;
-- lot/serial/quality authority remains E07;
-- no wave/cluster/cartonization/slotting-AI/MFC in P0.
+E03 validates warehouse execution and calls E02 reservation/movement; E02 remains sole stock truth. Scan identifies but never directly mutates stock. Lot/serial/quality remains E07.
 
 # E04 — electronics component master prepared
 
-Prepared:
+Prepared S01–S08 + `E04_IMPLEMENTATION_SEQUENCE.md`.
 
-```text
-TASK_INV_IMPL_E04.md      Master contract
-TASK_INV_IMPL_E04_S01.md  Internal Part Identity Compatibility
-TASK_INV_IMPL_E04_S02.md  Manufacturer + MPN Identity
-TASK_INV_IMPL_E04_S03.md  Supplier Part / Sourcing Identity
-TASK_INV_IMPL_E04_S04.md  Package + Footprint Identity
-TASK_INV_IMPL_E04_S05.md  Typed Parametric Attributes + Units
-TASK_INV_IMPL_E04_S06.md  AML/AVL Approval + Internal Substitutes
-TASK_INV_IMPL_E04_S07.md  Lifecycle/Compliance/Provenance
-TASK_INV_IMPL_E04_S08.md  Component Search/Workspace/Provider Staging
-E04_IMPLEMENTATION_SEQUENCE.md
-```
-
-Canonical identity decision:
+Canonical identity:
 
 ```text
 materials.id            = internal part identity
@@ -211,7 +150,7 @@ supplier_parts          = supplier-scoped SKU/source identity
 platform_sku_mappings   = sales/channel identity
 ```
 
-Critical safety distinctions:
+Safety distinctions:
 
 ```text
 alias != approved manufacturer part
@@ -221,9 +160,48 @@ parametric similarity != substitute authority
 provider confidence != canonical truth
 ```
 
-Manufacturer-part identity is separated from AML approval. Internal substitutes are directional and controlled. Package is distinct from PCB footprint. Typed parameters preserve requirement-vs-source scope and provenance. Provider enrichment creates staged candidates/diffs, never autonomous approval or purchasing.
+# E05 — controlled engineering configuration prepared
 
-E04 runtime waits for E03 gate. Exact migration numbers are assigned only from then-current merged history.
+Prepared:
+
+```text
+TASK_INV_IMPL_E05.md      Master contract
+TASK_INV_IMPL_E05_S01.md  Product / Part Revision Identity
+TASK_INV_IMPL_E05_S02.md  Revisioned EBOM + RefDes
+TASK_INV_IMPL_E05_S03.md  MBOM Derivation / Manufacturing Differences
+TASK_INV_IMPL_E05_S04.md  EDA Import Staging / BOM Diff
+TASK_INV_IMPL_E05_S05.md  Release Effectivity Resolution
+TASK_INV_IMPL_E05_S06.md  ECN/ECO / Deviation / Impact Control
+TASK_INV_IMPL_E05_S07.md  Controlled Docs / Firmware / Test Specs
+TASK_INV_IMPL_E05_S08.md  Legacy BOM Compatibility / Where-used / Cost Source
+E05_IMPLEMENTATION_SEQUENCE.md
+```
+
+Configuration chain:
+
+```text
+Internal Material
+ -> Product/Part Revision
+ -> Released EBOM Revision
+ -> Released MBOM Revision based on EBOM
+ -> Controlled Documents/Firmware/Test Specs
+ -> Release Package
+ -> Work Order snapshot (E06)
+```
+
+Key invariants:
+
+- released revisions are immutable;
+- `material_bom` remains sales/fulfilment BOM;
+- `project_bom_lines` may seed staging/draft only, never auto-release;
+- EDA import creates staging/diff/draft only;
+- MBOM retains ancestry to one released EBOM;
+- effectivity selects current released configuration without moving historical references;
+- ECO records before/after objects and unresolved impacts block approval;
+- controlled released files are checksum-bound and superseded, never overwritten in place;
+- cost/where-used queries name exact BOM type/revision.
+
+E05 completes only when E06 can reference one exact immutable released manufacturing configuration.
 
 # Current transition path
 
@@ -238,10 +216,10 @@ E01 core execution primitives
  -> E02 stock truth/reservation
  -> E03 warehouse execution
  -> E04 electronics part identity/AVL
+ -> E05 controlled configuration
 
 LATER
-E05 controlled EBOM/MBOM/revision/ECN
- -> E06 work orders
+E06 work orders
  -> E07 lot/serial/quality/RF test evidence
  -> E08 MRP/subcontract
  -> remaining commerce/economics/automation/AI epics
@@ -249,6 +227,6 @@ E05 controlled EBOM/MBOM/revision/ECN
 
 ## Hard stop
 
-No E01/E11/E02/E03/E04 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04/E05 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
