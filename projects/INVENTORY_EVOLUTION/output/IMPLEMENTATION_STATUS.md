@@ -13,36 +13,40 @@ External implementation:
 - audited pre-E00 baseline/main: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 - frozen pre-audit branch: `backup/pre-e00-audit-20260911`
 - implementation branch: `impl/e00-release-safety`
-- reviewed implementation head: `322a9d9d65c74e950e37d9f95c17f19510124f7f`
+- reviewed implementation head: `0e0870499f7e8b5e68a308231eae954f106bd5aa`
 - PR: `ZXYHtech/inventory#3` (Draft)
 
 Do **not** mark E00 complete until the repository-local Release Gate is executed from a real checkout.
-Do **not** perform a production code/schema cutover until the pre-change server code + database backup policy has passed on the production host.
+Do **not** claim the production DB has already been backed up; production backup evidence can only be created on the production host or an explicitly authorized copy.
 
 ## Mandatory production-change protection
 
-See:
+See `PRODUCTION_CHANGE_SAFETY_POLICY.md`.
 
-`PRODUCTION_CHANGE_SAFETY_POLICY.md`
-
-The required pre-change chain is:
+The current contract is:
 
 ```text
 frozen pre-audit Git source
- -> repository Release Gate
- -> snapshot exact currently-deployed server code
+ -> confirm production DB exists
+ -> require existing git/python3 bootstrap tools
+ -> clone target into /tmp only
+ -> narrow compile gate for backup/recovery tooling
+ -> snapshot exact currently deployed server code
  -> consistent SQLite production snapshot
- -> isolated database restore verification
+ -> isolated DB restore verification
  -> manifest/checksums
  -> off-host Recovery Bundle when configured/required
- -> only then quiesce writers and cut over code/schema
+ -> stop backup/OCR/Web writers
+ -> only now allow apt/pip runtime changes
+ -> full repository Release Gate
+ -> rsync target code
+ -> numbered migration + integrity postflight
+ -> restart + health
 ```
 
-The frozen Git branch is not considered a substitute for the server-code snapshot: a real server can contain local configuration or manual changes that are not present in Git.
+The frozen Git branch does not replace the exact server-code snapshot because a server can contain manual/local changes not represented in Git.
 
-`update_server.sh` now creates a verified `deployed-code-<timestamp>.tar.gz` plus metadata before the database snapshot or any service stop. The snapshot excludes runtime `data/` but captures the actual deployed application tree and SHA-256/file manifest. It also fences its own output files if a custom backup directory is configured inside the application tree.
-
-The production SQLite backup still uses SQLite Online Backup API and must pass an isolated recovery drill before cutover.
+`INVENTORY_PREFLIGHT_ONLY=1` executes the backup/recovery path and target Release Gate using the currently installed dependencies, then exits before apt/pip, service stop, code sync or production schema migration.
 
 ## E00 story coverage
 
@@ -56,105 +60,64 @@ The production SQLite backup still uses SQLite Online Backup API and must pass a
 | E00-S06 recovery manifest/checksums/config | Implemented + expanded | Awaiting real checkout | `TASK_INV_IMPL_E00_S06.md` |
 | E00-S07 off-host copy/health/scheduler | Implemented + fail-closed | Awaiting real checkout | `TASK_INV_IMPL_E00_S07.md` |
 
-## Major E00 hardening completed after first implementation
+## Major E00 hardening
 
 ### Release Gate
 
-`tools/verify_release.py` is the authoritative local/server command. Required tests/files are not silently skipped. It now includes:
+`tools/verify_release.py` is the authoritative local/server command. Required checks are fail-closed and include:
 
 - Python compile checks;
 - migration/integrity/recovery/backup tests;
-- deployed-code pre-change snapshot tests;
+- pre-change deployed-code snapshot tests;
 - deployment-safety regression;
-- existing auth/core/recognition/warehouse regressions;
+- auth/core/recognition/warehouse regressions;
 - Bash syntax when available/required;
-- JavaScript syntax and existing client-routing regression when Node is available/required.
+- JavaScript syntax/client-routing regression when Node is available/required.
 
 No required correctness logic is unique to GitHub Actions.
 
 ### Migration publication safety
 
-Numbered migrations use explicit SQLite `BEGIN IMMEDIATE` semantics. DDL, migration-registry row and postflight integrity belong to one transaction. Failure rolls back.
+Numbered migrations use explicit SQLite `BEGIN IMMEDIATE`. DDL, migration-registry row and postflight integrity belong to one transaction; failure rolls back.
 
-Additional contracts:
+Contracts include:
 
-- migration versions must be contiguous after baseline version 1;
-- unknown/tampered migration history is rejected;
-- deterministic test injects Migration 2, forces postflight failure and requires both test DDL and registry row to disappear.
+- contiguous post-baseline versions;
+- unknown/tampered history rejection;
+- deterministic forced-postflight rollback test.
 
 ### Integrity evidence
 
-Read-only integrity checks extend into operational evidence including:
+Read-only integrity checks cover core and operational evidence chains including inventory/location/account, shipment scans/archives, transfer receipts, counts, BOM operations, procurement/receipt/cost ancestry, pricing revisions, attachment derivatives, recognition revisions/corrections and material metadata/resources.
 
-- inventory account/location validity and cross-warehouse location mismatch;
-- inventory logs;
-- shipment scan/archive chains;
-- transfer receipt events;
-- inventory counts;
-- project BOM / BOM operations;
-- purchase order/item/receipt/landed-cost ancestry;
-- pricing revisions/rules;
-- attachment derivative and recognition revision/correction chains;
-- material metadata/resources.
+### Exact pre-change server snapshot
 
-### Release / upgrade cutover
+`tools/create_prechange_snapshot.py` preserves the actual deployed application tree before production cutover, records SHA-256/file list/release identity, excludes runtime data/cache and refuses overwrite. It also excludes its own output files if a custom backup directory resides under the application tree.
 
-`update_server.sh` treats code + schema cutover as a maintenance transaction:
+### Missing production DB is fail-closed
 
-```text
-new code Release Gate
- -> exact currently deployed code snapshot
- -> consistent pre-upgrade DB backup
- -> isolated recovery verification + manifest/off-host copy
- -> stop backup timer/service + OCR + Web writers
- -> rsync code
- -> numbered migration + integrity postflight
- -> persist new release identity
- -> restart
- -> health check
- -> restore previously-active backup timer
-```
+`update_server.sh` refuses to continue when the existing production DB is missing. It does not reinterpret missing storage as first deployment or create an empty DB.
 
-If failure occurs after writer quiescence, services remain stopped instead of continuing in an unknown mixed version.
+### Package changes only after backup proof and writer quiesce
 
-Pre-upgrade backup Manifest records the **currently deployed** release, not the new clone HEAD. When off-host recovery is configured, the bundle also includes the pre-change deployed-code archive and its metadata.
+The update path no longer runs `apt`/`pip` before recovery evidence exists. For a real cutover it also stops backup/OCR/Web writers before changing runtime dependencies, preventing the old application from serving requests against a partially updated runtime environment.
 
-### Fresh/repair deployment safety
+If failure occurs after writer quiescence, services remain stopped for explicit repair/restore rather than automatically resuming an unknown mixed state.
 
-`setup_server.sh` may be re-run without allowing `rsync --delete` to own `data/`. The entire runtime `data/` tree is excluded, protecting DB, images, generated artifacts, backup files and health records.
+### Backup-only production preflight
 
-A setup is not published as successful until `/api/health` passes. Release identity and backup-timer enablement occur only after health succeeds.
-
-### Release provenance
-
-Deployment persists `.inventory-release-ref`; scheduled backups retain application release identity even though `.git` is deliberately absent from the deployed directory.
+`INVENTORY_PREFLIGHT_ONLY=1` performs fresh code/DB snapshots, isolated restore, manifest/off-host copy and the target Release Gate on current dependencies, then exits without changing dependencies or production runtime state.
 
 ### Disaster-recovery bundle
 
 Off-host destination is fail-closed:
 
 - root must already exist;
-- production/scheduled copy requires `.inventory-backup-target` on the verified mounted filesystem;
-- missing/unmarked target fails and writes failed health;
+- `.inventory-backup-target` must live on the verified mounted filesystem;
+- missing/unmarked target fails;
 - destination hashes are verified before atomic publish.
 
-Backup names use UTC microseconds and existing snapshots are never overwritten.
-
-Scheduled backups support strict declared recovery paths through:
-
-```text
-INVENTORY_BACKUP_ARTIFACT_PATHS
-INVENTORY_BACKUP_CONFIG_PATHS
-```
-
-The installed backup service declares the baseline recovery configuration set:
-
-- `/etc/inventory-lite/backup.env`;
-- Web/OCR/Backup systemd units;
-- backup timer;
-- Nginx site configuration.
-
-A declared config path going missing makes the backup fail instead of silently publishing an incomplete recovery bundle. Pre-upgrade off-host backup captures corresponding configuration that actually exists on the old deployment.
+Scheduled backups declare recovery config/artifact paths. A declared required config disappearing fails the backup instead of publishing an incomplete bundle.
 
 ## Required E00 gate
 
@@ -178,17 +141,11 @@ python3 tools/verify_release.py --require-bash --require-node
 
 Any failure keeps E00 open.
 
-Detailed handoff:
+Detailed handoff: `E00_LOCAL_VERIFICATION_HANDOFF.md`.
 
-`E00_LOCAL_VERIFICATION_HANDOFF.md`
+## E01 is story-ready but blocked
 
-## E01 is story-ready
-
-The master E01 design remains:
-
-`TASK_INV_IMPL_E01.md`
-
-Story contracts are independently prepared:
+Prepared stories:
 
 ```text
 TASK_INV_IMPL_E01_S01.md  Shared API/domain primitives
@@ -203,7 +160,15 @@ TASK_INV_IMPL_E01_S09.md  Correlation propagation
 TASK_INV_IMPL_E01_S10.md  Modular-monolith extraction
 ```
 
-Proposed additive migration sequence once E00 is complete:
+S01/S02/S03 are now grounded to the current implementation instead of a parallel framework. Pilot business-service bindings are:
+
+```text
+transfer.receive  -> TransferService.receive
+purchase.receive  -> ProcurementService.receive
+shipment.complete -> ShipmentService.complete
+```
+
+Proposed additive migration sequence once E00 completes:
 
 ```text
 Migration 1 = audited E00 baseline adoption
@@ -213,18 +178,18 @@ Migration 4 = outbox_events
 Migration 5 = operation_logs.correlation_id
 ```
 
-No E01 production code should be merged before the E00 gate passes and PR #3 is reviewed/merged.
+No E01 runtime code should be merged before E00 passes and PR #3 is reviewed/merged.
 
 ## Next transition
 
 ```text
 E00 real-checkout Release Gate PASS
  -> review/merge Inventory PR #3
- -> start E01-S01/S02
- -> E01-S03 pilot routes
- -> E01-S04 idempotency
- -> E01-S05/S06/S07 durable worker
- -> E01-S08/S09 outbox + correlation
- -> E01-S10 bounded module extraction
- -> only then advance toward E02 Stock Position / Reservation Kernel
+ -> E01 S01/S02 shared context + action policy
+ -> S03 pilot actions
+ -> S04 idempotency
+ -> S05/S06/S07 durable worker
+ -> S08/S09 outbox + correlation
+ -> S10 bounded module extraction
+ -> only then E02 Stock Position / Reservation Kernel
 ```
