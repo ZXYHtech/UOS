@@ -10,13 +10,39 @@
 External implementation:
 
 - repo: `ZXYHtech/inventory`
-- baseline/main: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
-- branch: `impl/e00-release-safety`
-- reviewed head: `7a8e0adcc0bf4f8fddba4688802ef2486f18f56c`
-- PR: `ZXYHtech/inventory#3`
-- PR state: Draft; direct GitHub state reports `mergeable=true`, `rebaseable=true`, `mergeable_state=clean`
+- audited pre-E00 baseline/main: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
+- frozen pre-audit branch: `backup/pre-e00-audit-20260911`
+- implementation branch: `impl/e00-release-safety`
+- reviewed implementation head: `322a9d9d65c74e950e37d9f95c17f19510124f7f`
+- PR: `ZXYHtech/inventory#3` (Draft)
 
 Do **not** mark E00 complete until the repository-local Release Gate is executed from a real checkout.
+Do **not** perform a production code/schema cutover until the pre-change server code + database backup policy has passed on the production host.
+
+## Mandatory production-change protection
+
+See:
+
+`PRODUCTION_CHANGE_SAFETY_POLICY.md`
+
+The required pre-change chain is:
+
+```text
+frozen pre-audit Git source
+ -> repository Release Gate
+ -> snapshot exact currently-deployed server code
+ -> consistent SQLite production snapshot
+ -> isolated database restore verification
+ -> manifest/checksums
+ -> off-host Recovery Bundle when configured/required
+ -> only then quiesce writers and cut over code/schema
+```
+
+The frozen Git branch is not considered a substitute for the server-code snapshot: a real server can contain local configuration or manual changes that are not present in Git.
+
+`update_server.sh` now creates a verified `deployed-code-<timestamp>.tar.gz` plus metadata before the database snapshot or any service stop. The snapshot excludes runtime `data/` but captures the actual deployed application tree and SHA-256/file manifest. It also fences its own output files if a custom backup directory is configured inside the application tree.
+
+The production SQLite backup still uses SQLite Online Backup API and must pass an isolated recovery drill before cutover.
 
 ## E00 story coverage
 
@@ -38,6 +64,7 @@ Do **not** mark E00 complete until the repository-local Release Gate is executed
 
 - Python compile checks;
 - migration/integrity/recovery/backup tests;
+- deployed-code pre-change snapshot tests;
 - deployment-safety regression;
 - existing auth/core/recognition/warehouse regressions;
 - Bash syntax when available/required;
@@ -47,7 +74,7 @@ No required correctness logic is unique to GitHub Actions.
 
 ### Migration publication safety
 
-Numbered migrations now use explicit SQLite `BEGIN IMMEDIATE` semantics. DDL, migration-registry row and postflight integrity belong to one transaction. Failure rolls back.
+Numbered migrations use explicit SQLite `BEGIN IMMEDIATE` semantics. DDL, migration-registry row and postflight integrity belong to one transaction. Failure rolls back.
 
 Additional contracts:
 
@@ -57,7 +84,7 @@ Additional contracts:
 
 ### Integrity evidence
 
-Read-only integrity checks now extend beyond the original core tables into operational evidence including:
+Read-only integrity checks extend into operational evidence including:
 
 - inventory account/location validity and cross-warehouse location mismatch;
 - inventory logs;
@@ -72,11 +99,12 @@ Read-only integrity checks now extend beyond the original core tables into opera
 
 ### Release / upgrade cutover
 
-`update_server.sh` now treats code + schema cutover as a maintenance transaction:
+`update_server.sh` treats code + schema cutover as a maintenance transaction:
 
 ```text
 new code Release Gate
- -> consistent pre-upgrade backup
+ -> exact currently deployed code snapshot
+ -> consistent pre-upgrade DB backup
  -> isolated recovery verification + manifest/off-host copy
  -> stop backup timer/service + OCR + Web writers
  -> rsync code
@@ -89,7 +117,7 @@ new code Release Gate
 
 If failure occurs after writer quiescence, services remain stopped instead of continuing in an unknown mixed version.
 
-Pre-upgrade backup Manifest records the **currently deployed** release, not the new clone HEAD.
+Pre-upgrade backup Manifest records the **currently deployed** release, not the new clone HEAD. When off-host recovery is configured, the bundle also includes the pre-change deployed-code archive and its metadata.
 
 ### Fresh/repair deployment safety
 
@@ -99,7 +127,7 @@ A setup is not published as successful until `/api/health` passes. Release ident
 
 ### Release provenance
 
-Deployment persists `.inventory-release-ref`; scheduled backups can retain application release identity even though `.git` is deliberately absent from the deployed directory.
+Deployment persists `.inventory-release-ref`; scheduled backups retain application release identity even though `.git` is deliberately absent from the deployed directory.
 
 ### Disaster-recovery bundle
 
@@ -112,7 +140,7 @@ Off-host destination is fail-closed:
 
 Backup names use UTC microseconds and existing snapshots are never overwritten.
 
-Scheduled backups now support strict declared recovery paths through:
+Scheduled backups support strict declared recovery paths through:
 
 ```text
 INVENTORY_BACKUP_ARTIFACT_PATHS
@@ -126,7 +154,7 @@ The installed backup service declares the baseline recovery configuration set:
 - backup timer;
 - Nginx site configuration.
 
-A declared config path going missing makes the backup fail instead of silently publishing an incomplete recovery bundle. Pre-upgrade off-host backup captures all corresponding configuration that actually exists on the old deployment.
+A declared config path going missing makes the backup fail instead of silently publishing an incomplete recovery bundle. Pre-upgrade off-host backup captures corresponding configuration that actually exists on the old deployment.
 
 ## Required E00 gate
 
@@ -154,13 +182,13 @@ Detailed handoff:
 
 `E00_LOCAL_VERIFICATION_HANDOFF.md`
 
-## E01 is now story-ready
+## E01 is story-ready
 
 The master E01 design remains:
 
 `TASK_INV_IMPL_E01.md`
 
-Story contracts are now independently prepared:
+Story contracts are independently prepared:
 
 ```text
 TASK_INV_IMPL_E01_S01.md  Shared API/domain primitives
