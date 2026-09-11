@@ -10,7 +10,8 @@
 **E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`  
 **E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`  
 **E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`  
-**E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`
+**E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`  
+**E07:** `DESIGN_READY_BLOCKED_BY_E06_GATE`
 
 External implementation:
 
@@ -123,103 +124,78 @@ Migration is shadow-first, cutover-last. Only final E02 cutover may declare the 
 
 # E03 — warehouse execution prepared
 
-Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md`:
-
-```text
-stable warehouse location identity
-receiving staging + putaway
-typed scan resolver
-exact-bin allocation / scan-first picking
-location-aware count observation/reconciliation
-cycle count + simple policies
-mobile/handheld guided scan UX
-```
-
-E03 validates warehouse execution and calls E02 reservation/movement; E02 remains sole stock truth. Scan identifies but never directly mutates stock. Lot/serial/quality remains E07.
+Prepared S01–S07 + `E03_IMPLEMENTATION_SEQUENCE.md` covering stable locations, receiving/putaway, typed scan, exact-bin picking, location-aware counts, cycle policies and guided mobile scan. E03 calls E02 for authoritative stock changes.
 
 # E04 — electronics component master prepared
 
-Prepared S01–S08 + `E04_IMPLEMENTATION_SEQUENCE.md`.
+Prepared S01–S08 + `E04_IMPLEMENTATION_SEQUENCE.md` covering internal part identity, Manufacturer+MPN, Supplier Part, package/footprint, typed parametrics, AML/AVL/substitutes, provenance and component workspace/provider staging.
 
-Canonical identity:
-
-```text
-materials.id            = internal part identity
-materials.material_code = internal part number
-manufacturer_parts      = Manufacturer + MPN identity
-supplier_parts          = supplier-scoped SKU/source identity
-platform_sku_mappings   = sales/channel identity
-```
-
-Safety distinctions:
+Critical distinction remains:
 
 ```text
-alias != approved manufacturer part
-MPN existence != AML approval
-supplier availability != engineering approval
-parametric similarity != substitute authority
-provider confidence != canonical truth
+search/candidate similarity != engineering approval
 ```
 
 # E05 — controlled engineering configuration prepared
 
-Prepared S01–S08 + `E05_IMPLEMENTATION_SEQUENCE.md`.
-
-```text
-Internal Material
- -> Product/Part Revision
- -> Released EBOM Revision
- -> Released MBOM Revision based on EBOM
- -> Controlled Documents/Firmware/Test Specs
- -> Release Package
- -> Work Order snapshot
-```
-
-Released revisions are immutable; sales BOM remains separate; EDA imports stage/diff only; MBOM ancestry is preserved; ECO/change impact is controlled; released files are checksum-bound.
+Prepared S01–S08 + `E05_IMPLEMENTATION_SEQUENCE.md` covering part revision, EBOM/refdes, MBOM ancestry, EDA staging/diff, effectivity, ECN/ECO/deviation, controlled documents/firmware/test specs and legacy BOM compatibility/where-used.
 
 # E06 — work order / manufacturing execution prepared
+
+Prepared S01–S08 + `E06_IMPLEMENTATION_SEQUENCE.md` covering WO lifecycle/frozen configuration, requirement snapshot/reservation, kit/pick/issue to WO WIP, overissue/return/scrap, partial output, hold/cancel disposition, controlled substitution and prototype mode.
+
+# E07 — traceability / quality / RF test evidence prepared
 
 Prepared:
 
 ```text
-TASK_INV_IMPL_E06.md      Master contract
-TASK_INV_IMPL_E06_S01.md  Work Order Lifecycle + Frozen Configuration
-TASK_INV_IMPL_E06_S02.md  Requirement Snapshot / Reservation / Shortage
-TASK_INV_IMPL_E06_S03.md  Kitting / Pick / Issue to WO-owned WIP
-TASK_INV_IMPL_E06_S04.md  Overissue / Return / Scrap
-TASK_INV_IMPL_E06_S05.md  Partial Completion / Finished Output Receipt
-TASK_INV_IMPL_E06_S06.md  Hold / Cancellation / WIP Disposition
-TASK_INV_IMPL_E06_S07.md  Controlled Work-order Substitution
-TASK_INV_IMPL_E06_S08.md  Engineering Prototype / Trial-build Mode
-E06_IMPLEMENTATION_SEQUENCE.md
+TASK_INV_IMPL_E07.md      Master contract
+TASK_INV_IMPL_E07_S01.md  Traceability Policy + Lot/Serial Identity
+TASK_INV_IMPL_E07_S02.md  Lot-aware Receiving + Quality Stock State
+TASK_INV_IMPL_E07_S03.md  IQC/IPQC/FQC Inspection + Quality Release
+TASK_INV_IMPL_E07_S04.md  NCR / MRB-lite / Rework / Scrap
+TASK_INV_IMPL_E07_S05.md  Work-order Genealogy + Finished Serial/Output Lot
+TASK_INV_IMPL_E07_S06.md  Released Test Specification / Limit Execution
+TASK_INV_IMPL_E07_S07.md  RF/Electrical Test Run / Measurements / Raw Artifacts
+TASK_INV_IMPL_E07_S08.md  Equipment / Calibration / Setup Provenance
+TASK_INV_IMPL_E07_S09.md  Final Quality Release / Shipment Trace / Recall Impact
+E07_IMPLEMENTATION_SEQUENCE.md
 ```
 
-Core manufacturing boundary:
+Core evidence chain:
 
 ```text
-E05 = exact released configuration
-E06 = manufacturing demand/execution document + WIP custody
-E02 = reservation/movement/balance truth
-E03 = bin allocation + scan execution
-E04/E05 = substitute/deviation authority
-E07 = quality / lot / serial / RF test release
-E11 = later actual-cost economics from E06 evidence
+supplier / receipt
+ -> source lot/date code
+ -> quality state
+ -> E06 WO issue
+ -> genealogy
+ -> finished serial
+ -> exact product/MBOM/firmware
+ -> released test limits
+ -> structured measurements + raw S2P/spectrum evidence
+ -> equipment + calibration-at-test-time
+ -> NCR/rework/retest where needed
+ -> final quality release
+ -> shipment/customer
 ```
 
-Key E06 invariants:
+Critical invariants:
 
-- WO release freezes exact product revision + MBOM + release package;
-- requirement snapshot never follows future MBOM changes;
-- production reservation reduces ATP but not physical on-hand;
-- kitting is a view/task, not a second stock ledger;
-- issued stock remains owned by WO/requirement;
-- normal issue cannot silently overissue;
-- return, scrap and overissue are separate events;
-- partial finished output is supported;
-- cancel cannot finish with unexplained reservation/WIP;
-- substitute use records original requirement + actual material + valid E04/E05 authority;
-- prototype mode may use controlled draft snapshot but remains explicitly non-production/non-saleable by default;
-- no full MES/routing engine is required for E06 P0.
+- trace policy is risk-based; not every passive is serialized;
+- legacy stock is never assigned invented genealogy;
+- location, lot identity and quality state are independent dimensions;
+- pending/quarantine/rejected stock is not normal ATP/MRP/WO supply;
+- quality-state changes use E02 ledger/disposition, not direct text edits;
+- genealogy advertises only the granularity actually captured;
+- failed/aborted test runs remain after passing retest;
+- raw RF artifacts are checksum-bound and linked to DUT/test run;
+- historical result retains exact limit revision;
+- equipment calibration validity is evaluated at test execution time;
+- physical completion does not automatically grant saleable quality release;
+- trace-controlled shipment preserves exact serial/lot identity to customer.
+
+Before release-critical test evidence becomes authoritative, E00 recovery must be extended so retained raw artifacts/certificates are backup/restorable with checksum verification.
 
 # Current transition path
 
@@ -236,15 +212,15 @@ E01 core execution primitives
  -> E04 electronics part identity/AVL
  -> E05 controlled configuration
  -> E06 work-order execution
+ -> E07 traceability/quality/RF test evidence
 
 LATER
-E07 lot/serial/quality/RF test evidence
- -> E08 MRP/subcontract
+E08 MRP/subcontract
  -> remaining commerce/economics/automation/AI epics
 ```
 
 ## Hard stop
 
-No E01/E11/E02/E03/E04/E05/E06 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04/E05/E06/E07 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
