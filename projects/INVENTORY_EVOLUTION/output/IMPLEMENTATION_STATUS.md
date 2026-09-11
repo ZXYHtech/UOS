@@ -9,7 +9,8 @@
 **E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`  
 **E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`  
 **E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`  
-**E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`
+**E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`  
+**E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`
 
 External implementation:
 
@@ -162,22 +163,7 @@ provider confidence != canonical truth
 
 # E05 — controlled engineering configuration prepared
 
-Prepared:
-
-```text
-TASK_INV_IMPL_E05.md      Master contract
-TASK_INV_IMPL_E05_S01.md  Product / Part Revision Identity
-TASK_INV_IMPL_E05_S02.md  Revisioned EBOM + RefDes
-TASK_INV_IMPL_E05_S03.md  MBOM Derivation / Manufacturing Differences
-TASK_INV_IMPL_E05_S04.md  EDA Import Staging / BOM Diff
-TASK_INV_IMPL_E05_S05.md  Release Effectivity Resolution
-TASK_INV_IMPL_E05_S06.md  ECN/ECO / Deviation / Impact Control
-TASK_INV_IMPL_E05_S07.md  Controlled Docs / Firmware / Test Specs
-TASK_INV_IMPL_E05_S08.md  Legacy BOM Compatibility / Where-used / Cost Source
-E05_IMPLEMENTATION_SEQUENCE.md
-```
-
-Configuration chain:
+Prepared S01–S08 + `E05_IMPLEMENTATION_SEQUENCE.md`.
 
 ```text
 Internal Material
@@ -186,22 +172,54 @@ Internal Material
  -> Released MBOM Revision based on EBOM
  -> Controlled Documents/Firmware/Test Specs
  -> Release Package
- -> Work Order snapshot (E06)
+ -> Work Order snapshot
 ```
 
-Key invariants:
+Released revisions are immutable; sales BOM remains separate; EDA imports stage/diff only; MBOM ancestry is preserved; ECO/change impact is controlled; released files are checksum-bound.
 
-- released revisions are immutable;
-- `material_bom` remains sales/fulfilment BOM;
-- `project_bom_lines` may seed staging/draft only, never auto-release;
-- EDA import creates staging/diff/draft only;
-- MBOM retains ancestry to one released EBOM;
-- effectivity selects current released configuration without moving historical references;
-- ECO records before/after objects and unresolved impacts block approval;
-- controlled released files are checksum-bound and superseded, never overwritten in place;
-- cost/where-used queries name exact BOM type/revision.
+# E06 — work order / manufacturing execution prepared
 
-E05 completes only when E06 can reference one exact immutable released manufacturing configuration.
+Prepared:
+
+```text
+TASK_INV_IMPL_E06.md      Master contract
+TASK_INV_IMPL_E06_S01.md  Work Order Lifecycle + Frozen Configuration
+TASK_INV_IMPL_E06_S02.md  Requirement Snapshot / Reservation / Shortage
+TASK_INV_IMPL_E06_S03.md  Kitting / Pick / Issue to WO-owned WIP
+TASK_INV_IMPL_E06_S04.md  Overissue / Return / Scrap
+TASK_INV_IMPL_E06_S05.md  Partial Completion / Finished Output Receipt
+TASK_INV_IMPL_E06_S06.md  Hold / Cancellation / WIP Disposition
+TASK_INV_IMPL_E06_S07.md  Controlled Work-order Substitution
+TASK_INV_IMPL_E06_S08.md  Engineering Prototype / Trial-build Mode
+E06_IMPLEMENTATION_SEQUENCE.md
+```
+
+Core manufacturing boundary:
+
+```text
+E05 = exact released configuration
+E06 = manufacturing demand/execution document + WIP custody
+E02 = reservation/movement/balance truth
+E03 = bin allocation + scan execution
+E04/E05 = substitute/deviation authority
+E07 = quality / lot / serial / RF test release
+E11 = later actual-cost economics from E06 evidence
+```
+
+Key E06 invariants:
+
+- WO release freezes exact product revision + MBOM + release package;
+- requirement snapshot never follows future MBOM changes;
+- production reservation reduces ATP but not physical on-hand;
+- kitting is a view/task, not a second stock ledger;
+- issued stock remains owned by WO/requirement;
+- normal issue cannot silently overissue;
+- return, scrap and overissue are separate events;
+- partial finished output is supported;
+- cancel cannot finish with unexplained reservation/WIP;
+- substitute use records original requirement + actual material + valid E04/E05 authority;
+- prototype mode may use controlled draft snapshot but remains explicitly non-production/non-saleable by default;
+- no full MES/routing engine is required for E06 P0.
 
 # Current transition path
 
@@ -217,16 +235,16 @@ E01 core execution primitives
  -> E03 warehouse execution
  -> E04 electronics part identity/AVL
  -> E05 controlled configuration
+ -> E06 work-order execution
 
 LATER
-E06 work orders
- -> E07 lot/serial/quality/RF test evidence
+E07 lot/serial/quality/RF test evidence
  -> E08 MRP/subcontract
  -> remaining commerce/economics/automation/AI epics
 ```
 
 ## Hard stop
 
-No E01/E11/E02/E03/E04/E05 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04/E05/E06 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
