@@ -11,7 +11,7 @@ External implementation repository:
 - repository: `ZXYHtech/inventory`
 - baseline/current main at start: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 - implementation branch: `impl/e00-release-safety`
-- current implementation head recorded here: `61d486d9c1323d65694e7d7c0f6f3078eaf60045`
+- current implementation head recorded here: `16ae9ebc74782cd62819323c8d162ceddc7a29a5`
 - draft PR: `https://github.com/ZXYHtech/inventory/pull/3`
 
 The PR remains intentionally draft because the full repository-local release gate has not yet been executed from a real checkout.
@@ -49,6 +49,22 @@ Inventory commit `b671f674aa69ac3adb55429fe54f456ab9ea137b` corrects this:
 The first independent backup-job implementation named snapshots with second-level timestamps. A manual retry or duplicate trigger in the same second could fail safely with `FileExistsError`, but this is unnecessary operational noise.
 
 Inventory commit `61d486d9c1323d65694e7d7c0f6f3078eaf60045` changes names to UTC plus microseconds while preserving the rule that an already-published backup is never overwritten.
+
+### Off-host false-success hardening
+
+Static review found a more consequential disaster-recovery edge case: the first off-host copy path auto-created its destination root. If a NAS/NFS/SMB/sshfs mount disappeared, a primary host could create the same local directory path and make a local copy appear to be an off-host backup.
+
+Inventory commits `f545c14e3ba5af9fcbb48baf1435dc423792a3ad` through `16ae9ebc74782cd62819323c8d162ceddc7a29a5` make this fail closed:
+
+- backup destination roots are never auto-created;
+- scheduled/production off-host copy requires `.inventory-backup-target`;
+- tests reject a missing destination root;
+- tests reject an existing but unmarked destination;
+- the independent backup job records a failed health result when the marker is absent;
+- setup documentation requires creating the marker on the verified mounted filesystem;
+- enabling the backup timer first executes one full backup/recovery iteration, so a configured invalid target blocks timer enablement.
+
+This marker is not a general proof of remote topology; it is an operational mount sentinel. Operators must create it only after confirming the intended second failure domain is mounted and writable.
 
 ## Key implementation decisions
 
@@ -111,11 +127,11 @@ The old Linux update flow copied the live WAL-mode database file with `cp -a`. E
 
 ### Recovery manifest and off-host copy
 
-Recovery manifests record database/artifact/config paths, sizes and SHA-256 checksums. Verified off-host copy can target a mounted NAS/NFS/SMB/sshfs path and re-validates destination files before atomically publishing the bundle.
+Recovery manifests record database/artifact/config paths, sizes and SHA-256 checksums. Verified off-host copy targets a pre-existing mounted path and re-validates destination files before atomically publishing the bundle. Production copy additionally requires the mount sentinel `.inventory-backup-target`.
 
 ### Backup scheduling
 
-`tools/run_backup_job.py` is directly executable by an operator, cron or systemd timer. `setup_server.sh` installs a backup service/timer path, but does not enable an operator-unapproved cadence unless `INVENTORY_ENABLE_BACKUP_TIMER=1` is explicitly set.
+`tools/run_backup_job.py` is directly executable by an operator, cron or systemd timer. `setup_server.sh` installs a backup service/timer path, but does not enable an operator-unapproved cadence unless `INVENTORY_ENABLE_BACKUP_TIMER=1` is explicitly set. When enablement is requested it first starts the backup service once; failure prevents timer enablement.
 
 ## Required E00 verification gate
 
@@ -134,7 +150,7 @@ The minimum gate must prove:
 5. SQLite integrity and logical-orphan detection;
 6. isolated backup restore verification;
 7. backup manifest and checksum-tamper detection;
-8. independently schedulable backup job with off-host copy fixture;
+8. independently schedulable backup job with off-host marker/copy fixture;
 9. existing auth/security regression;
 10. existing core business regression;
 11. existing recognition regression;
@@ -146,7 +162,11 @@ Any failure keeps E00 open. Do not proceed to high-risk stock/reservation schema
 
 ## E01 preparation boundary
 
-E01 implementation remains blocked by E00 completion. Design preparation may continue, but no E01 production code should be merged and no E02 stock schema should start until the E00 local gate passes and PR #3 is reviewed.
+E01 design is now prepared in:
+
+`projects/INVENTORY_EVOLUTION/output/TASK_INV_IMPL_E01.md`
+
+Its status is `DESIGN_READY_IMPLEMENTATION_BLOCKED_BY_E00`. No E01 production code is considered implemented, and no E02 stock schema should start until the E00 local gate passes and PR #3 is reviewed/merged.
 
 After local verification succeeds and PR #3 is reviewed/merged:
 
