@@ -11,7 +11,8 @@
 **E04:** `DESIGN_READY_BLOCKED_BY_E03_GATE`  
 **E05:** `DESIGN_READY_BLOCKED_BY_E04_GATE`  
 **E06:** `DESIGN_READY_BLOCKED_BY_E05_GATE`  
-**E07:** `DESIGN_READY_BLOCKED_BY_E06_GATE`
+**E07:** `DESIGN_READY_BLOCKED_BY_E06_GATE`  
+**E08:** `DESIGN_READY_BLOCKED_BY_E07_GATE`
 
 External implementation:
 
@@ -146,21 +147,7 @@ Prepared S01–S08 + `E06_IMPLEMENTATION_SEQUENCE.md` covering WO lifecycle/froz
 
 # E07 — traceability / quality / RF test evidence prepared
 
-Prepared:
-
-```text
-TASK_INV_IMPL_E07.md      Master contract
-TASK_INV_IMPL_E07_S01.md  Traceability Policy + Lot/Serial Identity
-TASK_INV_IMPL_E07_S02.md  Lot-aware Receiving + Quality Stock State
-TASK_INV_IMPL_E07_S03.md  IQC/IPQC/FQC Inspection + Quality Release
-TASK_INV_IMPL_E07_S04.md  NCR / MRB-lite / Rework / Scrap
-TASK_INV_IMPL_E07_S05.md  Work-order Genealogy + Finished Serial/Output Lot
-TASK_INV_IMPL_E07_S06.md  Released Test Specification / Limit Execution
-TASK_INV_IMPL_E07_S07.md  RF/Electrical Test Run / Measurements / Raw Artifacts
-TASK_INV_IMPL_E07_S08.md  Equipment / Calibration / Setup Provenance
-TASK_INV_IMPL_E07_S09.md  Final Quality Release / Shipment Trace / Recall Impact
-E07_IMPLEMENTATION_SEQUENCE.md
-```
+Prepared S01–S09 + `E07_IMPLEMENTATION_SEQUENCE.md` covering risk-based trace policy, lot/serial identity, quality stock states, IQC/IPQC/FQC, NCR/rework/scrap, WO genealogy, released test limits, structured RF/electrical measurements, raw S2P/spectrum artifacts, equipment/calibration-at-test-time, final quality release, shipment trace and recall impact.
 
 Core evidence chain:
 
@@ -180,22 +167,50 @@ supplier / receipt
  -> shipment/customer
 ```
 
-Critical invariants:
+Before release-critical test evidence becomes authoritative, E00 recovery must include retained raw artifacts/certificates with checksum-verified backup/restore.
 
-- trace policy is risk-based; not every passive is serialized;
-- legacy stock is never assigned invented genealogy;
-- location, lot identity and quality state are independent dimensions;
-- pending/quarantine/rejected stock is not normal ATP/MRP/WO supply;
-- quality-state changes use E02 ledger/disposition, not direct text edits;
-- genealogy advertises only the granularity actually captured;
-- failed/aborted test runs remain after passing retest;
-- raw RF artifacts are checksum-bound and linked to DUT/test run;
-- historical result retains exact limit revision;
-- equipment calibration validity is evaluated at test execution time;
-- physical completion does not automatically grant saleable quality release;
-- trace-controlled shipment preserves exact serial/lot identity to customer.
+# E08 — MRP planning + subcontract / external WIP prepared
 
-Before release-critical test evidence becomes authoritative, E00 recovery must be extended so retained raw artifacts/certificates are backup/restorable with checksum verification.
+Prepared:
+
+```text
+TASK_INV_IMPL_E08.md      Master contract
+TASK_INV_IMPL_E08_S01.md  Planning Policy & Approved Sourcing Inputs
+TASK_INV_IMPL_E08_S02.md  Typed Dated Demand & Supply Projection
+TASK_INV_IMPL_E08_S03.md  Released MBOM Explosion & Dependent Demand
+TASK_INV_IMPL_E08_S04.md  Daily Netting / PAB / Pegging / Exceptions
+TASK_INV_IMPL_E08_S05.md  Planner Recommendation Review / Conversion
+TASK_INV_IMPL_E08_S06.md  Subcontract Order / Consigned Material / External WIP
+TASK_INV_IMPL_E08_S07.md  Subcontract Return / Reconciliation / Quality / Cost Evidence
+TASK_INV_IMPL_E08_S08.md  MRP Run Lifecycle / Scheduler / Exception Workbench
+E08_IMPLEMENTATION_SEQUENCE.md
+```
+
+Planning authority:
+
+```text
+E02/E07 qualified stock + reservations
+ + dated PO/WO/transfer/subcontract supply
+ + E05 released effective MBOM
+ + E06 demand
+ + E04 approved source / lead time / MOQ
+ -> E08 time-phased netting
+ -> explainable recommendation
+ -> human review
+ -> idempotent E01 conversion to PO/WO/transfer
+```
+
+E08 invariants:
+
+- MRP is not a low-stock formula and does not equate physical on-hand with nettable supply;
+- only released/effective manufacturing configuration is exploded;
+- every demand/supply row is dated and source-linked;
+- recommendations preserve pegging and calculation evidence;
+- no automatic PO/WO/substitute authority is implied by planning output;
+- company-owned material at subcontractor leaves local ATP but remains visible as company-owned external WIP;
+- subcontract close requires sent quantities to reconcile to consumed/returned/loss/scrap/approved variance;
+- returned subcontract output follows E07 quality/genealogy;
+- scheduled MRP execution uses E01 durable jobs/systemd-owned runtime, never GitHub Actions.
 
 # Current transition path
 
@@ -213,14 +228,20 @@ E01 core execution primitives
  -> E05 controlled configuration
  -> E06 work-order execution
  -> E07 traceability/quality/RF test evidence
+ -> E08 MRP/subcontract
 
-LATER
-E08 MRP/subcontract
- -> remaining commerce/economics/automation/AI epics
+NEXT DESIGN WAVES
+E09 omnichannel/ATP/external-object reconciliation
+ -> E10 CRM/quote/sample/support/RMA
+ -> E11 remaining channel economics/manufacturing actual cost
+ -> E12 reporting/product intelligence
+ -> E13 safe automation rules
+ -> E14 evidence-bound AI Copilot
+ -> E15 conditional scale/PostgreSQL
 ```
 
 ## Hard stop
 
-No E01/E11/E02/E03/E04/E05/E06/E07 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03/E04/E05/E06/E07/E08 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
