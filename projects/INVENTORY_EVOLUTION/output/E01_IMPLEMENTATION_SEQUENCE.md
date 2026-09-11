@@ -149,34 +149,49 @@ Critical tests:
 
 ## Slice F — Bounded Modular-monolith Extraction
 
-Suggested branch:
+Suggested branch family:
 
 ```text
-impl/e01-domain-extraction
+impl/e01-domain-backup
+impl/e01-domain-pricing
+impl/e01-domain-procurement
+impl/e01-domain-integrations
 ```
 
-Scope:
+Do not combine all extraction waves into one large PR.
 
-- E01-S10;
-- backup/recovery module;
-- pricing module;
-- procurement façade;
-- integration adapters/handlers.
+### F1 — backup/recovery
+
+Move existing E00 seams behind `domains/backup/` with compatibility re-exports only. No semantic change.
+
+### F2 — pricing
+
+Move `PricingService` and pure formula helpers behind `domains/pricing/` **with exact current behavior preserved**.
+
+This is an important bridge to E11-S01/S02: do not fix `margin_percent` while moving the code.
+
+### F3 — procurement
+
+Move `ProcurementService` behind a domain façade while preserving caller-owned SQLite transaction boundaries.
+
+### F4 — integrations
+
+Move provider/order adapters, `TaobaoApiClient`, account service and future job/outbox handlers after S05–S09 primitives exist.
 
 Do not move Inventory/Stock yet; E02 defines its future semantic boundary.
 
-Gate:
+Gate after each extraction:
 
 - no duplicate implementation left in old file;
 - import/startup smoke;
 - existing API contract unchanged;
-- full Release Gate after each extracted area.
+- full Release Gate.
 
 ## Why S04 precedes S03 in runtime implementation
 
 The catalog numbers describe feature stories, not mandatory merge order. It is safer to prove the idempotency primitive on an isolated command before routing stock-affecting production actions through the new execution wrapper.
 
-Therefore implementation order is intentionally:
+Therefore E01 implementation order is intentionally:
 
 ```text
 S01/S02
@@ -184,7 +199,7 @@ S01/S02
  -> S03
  -> S05/S06/S07
  -> S08/S09
- -> S10
+ -> S10 extraction waves
 ```
 
 ## Migration contract
@@ -212,3 +227,53 @@ branch based on current main
 ```
 
 Do not stack all E01 work on an unmerged long-lived branch unless there is a temporary review reason; doing so would recreate the large-change risk E00 was designed to prevent.
+
+# Post-E01 bridge — E11-S01/S02 before E02
+
+The project master plan explicitly places pricing/commercial safety before the Stock Position/Reservation rewrite.
+
+After E01 completes and pricing has a bounded domain boundary:
+
+```text
+E11-S01 Pricing Formula Semantics & Legacy Rule Safety
+ -> E11-S02 Floor Price / Deal-price Override Safety
+ -> only then E02 Stock Position / Movement / Reservation Kernel
+```
+
+Why this bridge exists:
+
+1. pricing formula semantics are high-impact but relatively isolated;
+2. the current `margin_percent` label is commercially misleading;
+3. fixing it before broader inventory/manufacturing changes prevents unsafe pricing automation from spreading;
+4. E11-S01/S02 can be validated without waiting for manufacturing actual-cost truth;
+5. realized order profitability remains deferred until later E11 stories after manufacturing/economics dependencies exist.
+
+## E11 bridge gate
+
+Before E02 starts:
+
+```text
+E01 complete and merged
+AND E11-S01 legacy pricing parity + new margin formula tests PASS
+AND E11-S02 below-floor enforcement tests PASS
+AND full Release Gate PASS
+AND no unresolved pricing migration/rollback blocker
+```
+
+Do **not** interpret this as permission to build full order economics early. The bridge is only formula terminology + commercial floor safety.
+
+## E02 entry rule
+
+E02 begins from the then-current `main` only after the above bridge passes.
+
+E02 must reuse E01 primitives rather than inventing alternatives:
+
+```text
+Action Policy
+Business Operations / Idempotency
+Correlation IDs
+Durable Jobs / Outbox when external side effects exist
+Versioned migrations / Release Gate
+```
+
+The Stock kernel must not embed a second authorization/idempotency/job framework.
