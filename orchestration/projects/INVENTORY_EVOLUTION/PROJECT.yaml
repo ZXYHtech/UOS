@@ -19,10 +19,16 @@ GitHubActionsDependency: FORBIDDEN
 ExecutionRequirement: Required correctness, release validation, migration verification, background execution, backup/recovery and production operation must work through repository-local or server-local mechanisms independently of GitHub Actions.
 PrimaryDeliverable: projects/INVENTORY_EVOLUTION/output/IMPLEMENTATION_STATUS.md
 PlanningDocument: projects/INVENTORY_EVOLUTION/REQUIREMENTS_AND_TASK_PLAN.md
+MasterExecutionRoadmap: projects/INVENTORY_EVOLUTION/output/MASTER_EXECUTION_ROADMAP.md
+OperatorDecisionRegister: projects/INVENTORY_EVOLUTION/output/OPERATOR_DECISION_REGISTER.md
 OperatorConstraintRef: projects/INVENTORY_EVOLUTION/NO_GITHUB_ACTIONS_POLICY.md
 ArchitectureChoice: MODULAR_MONOLITH_PLUS_DURABLE_WORKER
 DatabasePolicy: KEEP_SQLITE_UNTIL_MEASURED_SCALE_OR_HA_TRIGGER_JUSTIFIES_POSTGRESQL
 FirstImplementationBranch: impl/e00-release-safety
+PlanningCoverage: E00_THROUGH_E15_STORY_AND_SEQUENCE_DESIGN_COMPLETE
+CurrentExecutionGate: E00_REAL_CHECKOUT_RELEASE_VERIFICATION_REQUIRED
+CurrentExternalPR: https://github.com/ZXYHtech/inventory/pull/3
+CurrentExternalPRState: DRAFT_OPEN_NOT_MERGED
 NonGoals:
   - No big-bang rewrite
   - No microservice split during foundation phase
@@ -37,4 +43,6 @@ AcceptanceSummary:
   - E00 release safety is completed before high-risk schema domains begin
   - E01 action/idempotency/job infrastructure precedes broad automation and connector rewrites
   - E02 stock/reservation kernel is proven under retry and concurrency before omnichannel ATP or MRP
+  - Every production cutover first captures current deployed code and a consistent production DB backup and proves isolated restore
+  - Human/operator policy decisions are recorded in OPERATOR_DECISION_REGISTER rather than guessed in code
   - No required validation or runtime path depends on GitHub Actions
