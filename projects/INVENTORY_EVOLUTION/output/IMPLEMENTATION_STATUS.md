@@ -6,7 +6,8 @@
 **E00 implementation:** `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`  
 **E01:** `DESIGN_READY_BLOCKED_BY_E00_GATE`  
 **E11-S01/S02 early bridge:** `DESIGN_READY_BLOCKED_BY_E01`  
-**E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`
+**E02:** `DESIGN_READY_BLOCKED_BY_E00_E01_E11_GATES`  
+**E03:** `DESIGN_READY_BLOCKED_BY_E02_FOUNDATION`
 
 External implementation:
 
@@ -208,6 +209,77 @@ Only E02-S07 / Slice J may declare the new stock kernel authoritative.
 
 No historical bins/lots/serials/reservations are fabricated during migration.
 
+# E03 — warehouse execution design ready, runtime blocked
+
+Prepared:
+
+```text
+TASK_INV_IMPL_E03.md      Warehouse execution master contract
+TASK_INV_IMPL_E03_S01.md  Stable Warehouse Location Identity
+TASK_INV_IMPL_E03_S02.md  Receiving Staging and Putaway
+TASK_INV_IMPL_E03_S03.md  Typed Scan Resolution
+TASK_INV_IMPL_E03_S04.md  Exact Bin Allocation and Scan-first Picking
+TASK_INV_IMPL_E03_S05.md  Location-aware Count Observation and Reconciliation
+TASK_INV_IMPL_E03_S06.md  Cycle Count and Simple Warehouse Policies
+TASK_INV_IMPL_E03_S07.md  Mobile / Handheld Scan Execution UX
+E03_IMPLEMENTATION_SEQUENCE.md
+```
+
+Existing strengths are intentionally reused:
+
+- `warehouse_locations` / `warehouse_layout_items`;
+- shipment scan evidence;
+- `inventory_count_sessions` / `inventory_count_items`;
+- the existing material code/alias/barcode/QR matcher;
+- current count approval behavior that posts variance through the inventory mutation path rather than directly overwriting a balance.
+
+E03 architecture:
+
+```text
+E03 task / scan / observation
+ -> validates warehouse execution
+ -> calls E02 reservation/movement contract
+ -> E02 remains sole stock truth
+```
+
+Target inbound flow:
+
+```text
+PO / transfer receipt
+ -> receiving/staging location
+ -> putaway task
+ -> exact storage bin
+```
+
+Target outbound flow:
+
+```text
+E02 reservation
+ -> exact bin allocation
+ -> scan location/material
+ -> pick evidence
+ -> E02 reservation consumption + shipment movement
+```
+
+Target count flow:
+
+```text
+count task
+ -> physical observation by location/material
+ -> variance review
+ -> approved E02 adjustment movement
+```
+
+Important boundaries:
+
+- scan resolver identifies; it never directly changes stock;
+- `warehouse_layout_items` remains visual projection, not identity/stock truth;
+- lot/serial/quality-state authority remains E07;
+- no wave/cluster picking, cartonization, slotting AI or MFC in E03 P0;
+- exact E03 migration numbers are assigned only after E01/E02/E11 merged history is known.
+
+Pure location/scan infrastructure may begin only after E02 location/stock identity is frozen. Stock-mutating putaway/pick/count execution remains blocked until the relevant E02 movement/balance contracts are authoritative and locally verified.
+
 # Current transition path
 
 ```text
@@ -219,10 +291,10 @@ THEN:
 E01 small PRs
  -> E11-S01/S02 pricing safety
  -> E02 shadow-first stock kernel
+ -> E03 location / staging / putaway / scan / pick / count
 
 LATER:
-E03 warehouse location/scan/count
- -> E04 electronic part identity
+E04 electronic part identity
  -> E05 controlled EBOM/MBOM/revision
  -> E06 work orders
  -> E07 lot/serial/quality/RF test evidence
@@ -232,6 +304,6 @@ E03 warehouse location/scan/count
 
 ## Hard stop
 
-No E01/E11/E02 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
+No E01/E11/E02/E03 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`.
 
 Planning may continue; production authority may not.
