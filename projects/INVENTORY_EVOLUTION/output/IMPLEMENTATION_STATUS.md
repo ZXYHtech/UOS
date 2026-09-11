@@ -16,7 +16,8 @@
 **E10:** `DESIGN_READY_BLOCKED_BY_E04_E07_E09_FOUNDATIONS`  
 **E11:** `DESIGN_READY_SPLIT_EARLY_AND_LATE`  
 **E12:** `DESIGN_READY_BLOCKED_BY_DOMAIN_EVIDENCE`  
-**E13:** `DESIGN_READY_BLOCKED_BY_E01_DOMAIN_COMMANDS`
+**E13:** `DESIGN_READY_BLOCKED_BY_E01_DOMAIN_COMMANDS`  
+**E14:** `DESIGN_READY_BLOCKED_BY_GOVERNED_DOMAIN_CONTRACTS`
 
 External implementation:
 - repo: `ZXYHtech/inventory`
@@ -26,57 +27,74 @@ External implementation:
 - reviewed E00 head: `0e0870499f7e8b5e68a308231eae954f106bd5aa`
 - PR: `ZXYHtech/inventory#3`
 
-Production rule remains unchanged: no runtime wave is merged while E00 is awaiting the real repository-local Release Gate, and every future production change first performs server-code snapshot + consistent DB backup + isolated restore proof.
+Production rule remains unchanged: no later runtime wave is merged while E00 awaits the real repository-local Release Gate, and every production change first performs current server-code snapshot + consistent DB backup + isolated restore proof.
 
-# Prepared implementation waves
+# Prepared waves
 
 ```text
-E01  shared context / Action Policy / idempotency / jobs / outbox / correlation
+E01  execution primitives / Action Policy / idempotency / jobs / outbox
 E11 early  pricing semantics + floor/override safety
 E02  stock ledger / balance / reservation / ATP
 E03  warehouse locations / staging / scan / pick / count
 E04  electronics part / MPN / Supplier Part / parametrics / AVL
-E05  part revision / EBOM / MBOM / ECN / controlled docs
-E06  work orders / WIP / issue-return-scrap / partial output / prototype
+E05  revision / EBOM / MBOM / ECN / controlled docs
+E06  work order / WIP / issue-return-scrap / output / prototype
 E07  lot-serial / quality / NCR / RF test / calibration / release trace
-E08  MRP / pegging / recommendations / subcontract external WIP
-E09  omnichannel external-object / ATP publication / reconciliation
-E10  technical CRM / quote / samples / service case / RMA
-E11 late  standard cost / WO actual cost / economics / settlement / contribution
+E08  MRP / recommendations / subcontract external WIP
+E09  omnichannel / external-object / ATP publication / reconciliation
+E10  technical CRM / quote / samples / service / RMA
+E11 late  standard/actual cost / economics / settlement / contribution
 E12  governed metrics / cockpit / product intelligence
 E13  safe rules automation
+E14  evidence-bound AI Copilot
 ```
 
-Each wave has a master contract, story-level task files and an implementation-sequence file.
+Each prepared wave has a master contract, story-level tasks and an implementation-sequence file.
 
-# E13 — safe automation rules prepared
+# E13 — safe automation rules
+Prepared S01–S07 + `E13_IMPLEMENTATION_SEQUENCE.md`. Rules use typed predicates and registered domain commands; A3 high-consequence actions remain human-approved by default; observe-only, compensation, loop controls, kill switches and ownership/operations are required.
+
+# E14 — evidence-bound AI Copilot
 
 Prepared:
 
 ```text
-TASK_INV_IMPL_E13.md
-TASK_INV_IMPL_E13_S01.md  Business Event / Rule Identity
-TASK_INV_IMPL_E13_S02.md  Structured Condition Language
-TASK_INV_IMPL_E13_S03.md  Action Registry / Risk / Approval Policy
-TASK_INV_IMPL_E13_S04.md  Observe-only Simulation / Enablement
-TASK_INV_IMPL_E13_S05.md  Durable Execution / Idempotency / Compensation
-TASK_INV_IMPL_E13_S06.md  Loop Prevention / Kill Switch / Circuit Breakers
-TASK_INV_IMPL_E13_S07.md  Ownership / Observability / Periodic Review
-E13_IMPLEMENTATION_SEQUENCE.md
+TASK_INV_IMPL_E14.md
+TASK_INV_IMPL_E14_S01.md  Authorized Context / Evidence-first Answers
+TASK_INV_IMPL_E14_S02.md  AI Task Registry / Structured Output Schemas
+TASK_INV_IMPL_E14_S03.md  Constrained Read Tools / Governed NL Analytics
+TASK_INV_IMPL_E14_S04.md  Extraction / Matching Review / Human Corrections
+TASK_INV_IMPL_E14_S05.md  Draft / Recommendation / Action Preview Bridge
+TASK_INV_IMPL_E14_S06.md  Provider Privacy / Secrets / Prompt Injection
+TASK_INV_IMPL_E14_S07.md  Provenance / Evaluation / Regression Gate
+TASK_INV_IMPL_E14_S08.md  Durable AI Jobs / Budgets / Cancellation / Operations
+E14_IMPLEMENTATION_SEQUENCE.md
 ```
 
-Critical automation invariants:
+AI authority contract:
 
-- no arbitrary SQL/Python/shell rule execution;
-- rules call normal domain commands rather than tables;
-- A0/A1 read/draft/notify actions are preferred first;
-- A2 reversible mutations require explicit policy and compensation;
-- A3 high-consequence actions default to human approval;
-- every rule/action is versioned, idempotent and explainable;
-- high-impact rules start in observe-only mode;
-- loop/rate/depth/circuit-breaker controls exist before broad rollout;
-- global/domain/rule pause does not disable manual core operations;
-- scheduling uses E01 durable jobs/systemd/cron, never GitHub Actions.
+```text
+AI interprets / extracts / ranks / summarizes / drafts
+ -> deterministic validation
+ -> visible evidence / uncertainty
+ -> explicit human or narrow E13 approval
+ -> normal domain command
+ -> E01 receipt
+```
+
+Critical invariants:
+- AI is never an alternate source of truth for stock, price, BOM, quality, settlement or released test result;
+- no direct SQL/secret access;
+- user permissions/scopes apply to every AI read/tool;
+- every AI task has versioned schema/tool/privacy/budget contract;
+- confidence never bypasses exact MPN, released limit or business policy;
+- writes require structured action preview + current-state revalidation + explicit approval;
+- untrusted documents/web text cannot grant tools/permissions;
+- model/provider/prompt/source/correction provenance is retained;
+- task-specific evaluation/regression gates are required for production changes;
+- long work uses E01 durable jobs with fencing, cancellation and cost/tool/time budgets;
+- C4 high-consequence autonomous action is not an E14 completion criterion;
+- no required AI runtime/evaluation/scheduling path depends on GitHub Actions.
 
 # Current transition path
 
@@ -100,11 +118,11 @@ E01
  -> E11-S03..S08
  -> E12
  -> E13
+ -> E14
 
-NEXT DESIGN WAVES
-E14 evidence-bound AI Copilot
- -> E15 conditional scale/PostgreSQL
+NEXT DESIGN WAVE
+E15 conditional scale / PostgreSQL
 ```
 
 ## Hard stop
-No E01–E13 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`. Planning may continue; production authority may not.
+No E01–E14 runtime implementation should be merged while E00 remains `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`. Planning may continue; production authority may not.
