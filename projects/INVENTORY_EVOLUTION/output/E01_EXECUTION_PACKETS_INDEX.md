@@ -171,12 +171,17 @@ Scope:
 - no Inventory/Stock extraction;
 - no pricing semantic fix hidden inside move.
 
-After pricing extraction:
+After pricing extraction, execute the prepared early E11 bridge:
 
 ```text
-E11-S01 pricing terminology/formula safety
- -> E11-S02 floor/override safety
+E11_SLICE_A_EXECUTION_PACKET.md
+ -> E11_SLICE_B_EXECUTION_PACKET.md
+ -> E02
 ```
+
+The bridge index is:
+
+`E11_EARLY_EXECUTION_PACKETS_INDEX.md`
 
 Then continue remaining bounded extraction as scheduled and complete E01.
 
@@ -189,6 +194,14 @@ Then continue remaining bounded extraction as scheduled and complete E01.
 4 outbox_events                          E01-E
 5 operation_logs.correlation_id          E01-E
 ```
+
+The mandatory early E11 bridge then reserves:
+
+```text
+6 pricing.floor_override permission      E11-B
+```
+
+Therefore E02 must begin at migration 7 unless an explicitly approved intervening migration changes the sequence.
 
 All migrations are contiguous, immutable, checksummed and pass E00 pre/post integrity semantics.
 
