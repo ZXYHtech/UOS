@@ -259,15 +259,19 @@ Migration:
 
 Still no production stock-authority cutover.
 
-Movement evidence must be immutable, replay-safe, explicit-direction and reversable through compensating operations.
+Movement evidence must be immutable, replay-safe, explicit-direction and reversible through compensating operations.
 
-## E02-C — Balance Projection
+## E02-C — Balance Projection / Opening Reconciliation
 
-Implementation sequence:
+Packet:
 
-`E02_IMPLEMENTATION_SEQUENCE.md`
+`E02_SLICE_C_EXECUTION_PACKET.md`
 
-Expected next migration:
+Branch:
+
+`impl/e02-stock-projection`
+
+Migration:
 
 ```text
 8 = stock_balances projection
@@ -278,11 +282,13 @@ This is the first slice that may honestly prove:
 ```text
 concurrent spend cannot overspend current balance
 negative physical balance is rejected by the new kernel
+ledger -> projection rebuild is deterministic
+legacy opening stock reconciles exactly on controlled/staging evidence
 ```
 
 UI/business reads still remain legacy-authoritative until later shadow/parity gates.
 
-# Canonical migration sequence through prepared E02-B
+# Canonical migration sequence through prepared E02-C
 
 ```text
 1  baseline_current_schema_20260810       E00
@@ -292,7 +298,7 @@ UI/business reads still remain legacy-authoritative until later shadow/parity ga
 5  operation_logs.correlation_id          E01-E
 6  pricing.floor_override permission      E11-B
 7  stock movement operation/line ledger   E02-B
-8  expected stock_balances projection     E02-C
+8  stock_balances projection              E02-C
 9+ reservation / later approved E02 migrations
 ```
 
