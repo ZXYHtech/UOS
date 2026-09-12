@@ -4,13 +4,47 @@
 `DESIGN_READY_SPLIT_EARLY_AND_LATE`
 
 ## Early bridge
-After E01 pricing extraction and E00 gate:
+
+After E01 pricing extraction and E00 gate, use the code-level execution packets:
+
+```text
+E11_SLICE_A_EXECUTION_PACKET.md
+ -> E11_SLICE_B_EXECUTION_PACKET.md
+```
+
+Index:
+
+`E11_EARLY_EXECUTION_PACKETS_INDEX.md`
 
 ### Slice A — S01 pricing terminology/formulas
-Preserve legacy arithmetic exactly; introduce explicit target gross-margin semantics.
+
+Recommended branch:
+
+`impl/e11-pricing-semantics`
+
+Migration:
+
+```text
+NONE
+```
+
+Preserve legacy arithmetic exactly; introduce explicit target gross-margin/cost-markup semantics and cost-basis evidence.
 
 ### Slice B — S02 floor/override safety
-Add server-side floor resolution, dedicated override authority and immutable evidence.
+
+Recommended branch:
+
+`impl/e11-floor-safety`
+
+Migration:
+
+```text
+6 = pricing.floor_override permission definition
+```
+
+Migration 6 does **not** grant the permission to existing roles. Add server-side floor resolution, dedicated override authority, commit-time revalidation and immutable evidence.
+
+After Slice B passes the full gate, E02 begins from migration 7.
 
 These two may land before E02 because they are bounded safety fixes.
 
