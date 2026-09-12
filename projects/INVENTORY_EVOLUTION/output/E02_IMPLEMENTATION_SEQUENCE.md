@@ -18,12 +18,33 @@ full current-main Release Gate PASS
 
 Branch every E02 slice from the then-current `main`.
 
+Canonical migrations before E02:
+
+```text
+1 E00 baseline
+2 E01 business_operations
+3 E01 jobs + job_attempts
+4 E01 outbox_events
+5 E01 operation_logs.correlation_id
+6 E11 pricing.floor_override permission
+```
+
 ## Slice A — Stock Identity / UOM Contract
+
+Execution packet:
+
+`E02_SLICE_A_EXECUTION_PACKET.md`
 
 Suggested branch:
 
 ```text
 impl/e02-stock-identity
+```
+
+Migration:
+
+```text
+NONE
 ```
 
 Scope:
@@ -38,6 +59,7 @@ Gate:
 
 - every legacy inventory row maps deterministically or is explicitly flagged;
 - null/unassigned scopes normalize safely;
+- platform-account physical ownership is never guessed;
 - no quantity is dropped/merged silently;
 - full Release Gate.
 
@@ -45,16 +67,28 @@ Rollback: pure/additive.
 
 ## Slice B — Movement Ledger
 
+Execution packet:
+
+`E02_SLICE_B_EXECUTION_PACKET.md`
+
 Suggested branch:
 
 ```text
 impl/e02-movement-ledger
 ```
 
+Migration:
+
+```text
+7 = stock_movement_operations + stock_movement_lines
+```
+
 Scope:
 
 - E02-S02;
-- additive `stock_movement_operations` / `stock_movement_lines`;
+- additive immutable movement evidence;
+- effect fingerprint / operation-key replay protection;
+- explicit endpoint direction;
 - immutable reversal model;
 - isolated fixture posting only at first;
 - no production-authoritative route migration.
@@ -64,8 +98,18 @@ Critical tests:
 - one operation posts once;
 - multi-line atomicity;
 - same key/different fingerprint conflicts;
-- concurrent overspend blocked;
-- reversal/partial reversal bounded.
+- line validation failure rolls back all evidence;
+- reversal/partial reversal bounded;
+- original movement remains immutable.
+
+Important boundary:
+
+```text
+Slice B does NOT yet prove authoritative negative-stock/concurrent overspend prevention,
+because stock_balances projection is not authoritative until Slice C.
+```
+
+That concurrency gate moves to Slice C.
 
 ## Slice C — Balance Projection + Opening Migration
 
@@ -75,13 +119,22 @@ Suggested branch:
 impl/e02-stock-projection
 ```
 
+Expected next migration:
+
+```text
+8 = stock_balances projection + required indexes/constraints
+```
+
+If implementation discovers the need to split projection/index changes into multiple migrations, keep them contiguous starting at 8 and update this sequence before merge.
+
 Scope:
 
 - E02-S03;
 - additive `stock_balances` projection;
 - opening-balance importer;
 - deterministic reconciliation command/report;
-- rebuild-to-temp tooling.
+- rebuild-to-temp tooling;
+- atomic ledger + projection posting for isolated/new-kernel fixtures.
 
 Do not switch UI/business reads yet.
 
@@ -91,6 +144,8 @@ Gate:
 legacy opening totals == new opening totals
 projection rebuild == live projection
 unresolved opening mapping = 0 before shadow pilot
+concurrent spend against projection cannot overspend
+negative resulting physical balance is rejected by kernel
 ```
 
 ## Slice D — Shadow Posting Pilot
@@ -128,6 +183,12 @@ Suggested branch:
 
 ```text
 impl/e02-reservation-atp
+```
+
+Expected migration after projection migrations:
+
+```text
+next contiguous migration = stock_reservations + indexes
 ```
 
 Scope:
@@ -245,19 +306,18 @@ full Release Gate PASS
 
 If any fail, stay on old authority.
 
-## Migration numbering
+## Migration numbering rule
 
-Exact migration numbers depend on what E01/E11 consume, so do not hard-code numbers in design documents before those merge.
-
-Rule:
+Migration numbers are now anchored through version 7 by the prepared execution chain.
 
 ```text
-next contiguous immutable migration
- -> E02 additive ledger/projection/reservation objects
- -> later indexes/compatibility constraints as separate immutable migrations when needed
+1-6 fixed before E02
+7 movement ledger
+8 expected balance projection
+9+ reservations / later additive stock migrations as actually approved
 ```
 
-Never edit a migration already recorded in production.
+If Slice C or later needs more than one migration, allocate the next contiguous number and update this document before merging. Never edit/reuse a migration already recorded in production.
 
 ## Merge discipline
 
