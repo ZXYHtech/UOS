@@ -113,19 +113,23 @@ That concurrency gate moves to Slice C.
 
 ## Slice C — Balance Projection + Opening Migration
 
+Execution packet:
+
+`E02_SLICE_C_EXECUTION_PACKET.md`
+
 Suggested branch:
 
 ```text
 impl/e02-stock-projection
 ```
 
-Expected next migration:
+Migration:
 
 ```text
 8 = stock_balances projection + required indexes/constraints
 ```
 
-If implementation discovers the need to split projection/index changes into multiple migrations, keep them contiguous starting at 8 and update this sequence before merge.
+If implementation discovers the need to split projection/index changes into multiple migrations, stop and update the canonical migration plan before consuming Migration 9.
 
 Scope:
 
@@ -148,7 +152,11 @@ concurrent spend against projection cannot overspend
 negative resulting physical balance is rejected by kernel
 ```
 
-## Slice D — Shadow Posting Pilot
+## Slice D — Same-transaction Shadow Posting Pilot
+
+Execution packet:
+
+`E02_SLICE_D_EXECUTION_PACKET.md`
 
 Suggested branch:
 
@@ -156,28 +164,42 @@ Suggested branch:
 impl/e02-shadow-stock
 ```
 
-Scope:
-
-- choose one existing stock-changing path;
-- legacy path remains authoritative;
-- emit shadow movement + projection in the same SQLite transaction;
-- record reconciliation evidence.
-
-Preferred first pilot:
+Migration:
 
 ```text
-manual/test-controlled adjustment
+NONE
 ```
 
-before shipment/transfer/procurement.
+First pilot:
 
-Gate:
+```text
+POST /api/inventory/adjust
+```
 
-- no divergence through deterministic fixture set;
-- forced failure rolls legacy + shadow changes back together;
-- no async best-effort shadow gaps.
+Scope:
 
-## Slice E — Reservation / ATP
+- legacy `inventory`/`inventory_logs` remain authoritative;
+- selected adjustment path also emits Movement Ledger + Balance Projection shadow evidence;
+- legacy and new effects occur in the same SQLite transaction;
+- E02-A canonical identity mapping is reused;
+- narrow affected-row parity assertion before commit;
+- normal UI/business readers still use legacy quantity.
+
+Critical gates:
+
+- forced shadow failure rolls legacy DML/logs back too;
+- forced legacy failure leaves no shadow residue;
+- lost-response retry does not double legacy or shadow effects;
+- no async/best-effort shadow writer;
+- zero unexplained divergence through deterministic fixtures and agreed observation window.
+
+Do not migrate shipment/transfer/procurement in Slice D.
+
+## Slice E — Reservation / ATP Shadow Kernel
+
+Execution packet:
+
+`E02_SLICE_E_EXECUTION_PACKET.md`
 
 Suggested branch:
 
@@ -185,28 +207,42 @@ Suggested branch:
 impl/e02-reservation-atp
 ```
 
-Expected migration after projection migrations:
+Migration:
 
 ```text
-next contiguous migration = stock_reservations + indexes
+9 = stock_reservations + stock_reservation_events
 ```
 
 Scope:
 
 - E02-S04;
-- additive `stock_reservations`;
-- reservation lifecycle/ATP queries;
-- initially isolated/shadow mode;
-- no customer promise authority until concurrency tests pass.
+- durable reservation current state + immutable lifecycle events;
+- Decimal/UOM quantities;
+- warehouse-scope promise before E03 bin allocation;
+- ATP query with balance/reservation/buffer evidence;
+- reserve/increase/release/consume primitives;
+- legacy `quantity_locked` audit/report;
+- initially diagnostic/shadow mode only.
 
 Critical tests:
 
-- two concurrent reservations cannot oversubscribe;
-- release/consume exact-once;
-- ATP formula deterministic;
-- ambiguous legacy lock not fabricated.
+- two concurrent reservations cannot oversubscribe one free balance;
+- same idempotency key produces one reservation/event effect;
+- same key/different quantity conflicts;
+- partial/full release restores ATP exactly once;
+- consume + physical fixture movement does not double-subtract ATP;
+- unknown/non-eligible status contributes no promise supply;
+- ambiguous legacy locks are reported, never fabricated.
 
-## Slice F — Order / Shipment Integration
+Important authority boundary:
+
+```text
+Slice E does NOT yet change normal customer-order/shipment/channel promise behavior.
+```
+
+That starts only in Slice F.
+
+## Slice F — Order / Shipment Reservation Integration
 
 Suggested branch:
 
@@ -217,12 +253,24 @@ impl/e02-order-reservation
 Scope:
 
 - E02-S05;
-- confirmed demand creates reservation;
-- shipment completion consumes reservation + posts movement atomically;
-- cancellation/reassignment/reversal integration;
-- platform sync remains Outbox-based.
+- confirmed/committed demand creates reservation under explicit order policy;
+- shipment issue consumes reservation + posts physical movement + updates balance atomically;
+- cancellation/reassignment/reversal releases/restores promise correctly;
+- platform sync remains E01 Outbox-based;
+- migrate one shipment lifecycle path at a time.
 
-Migrate one shipment path at a time and run full Release Gate after each.
+Mandatory invariant:
+
+```text
+reservation consume
++ shipment movement
++ balance update
++ shipment/order state
++ audit/result receipt
+= one business transaction
+```
+
+No `consume reservation` in one commit and `deduct stock` in another.
 
 ## Slice G — Transfer Integration
 
@@ -266,10 +314,11 @@ impl/e02-adjustment-bridge
 
 Scope:
 
-- manual adjustment becomes explicit movement;
+- manual adjustment becomes authoritative explicit movement;
 - set-to quantity computes server-side delta;
 - existing count reconciliation uses movement bridge;
-- count observation remains separate from balance mutation.
+- count observation remains separate from balance mutation;
+- retire Slice D shadow-only adapter for this path only after parity evidence.
 
 ## Slice J — Authoritative Cutover
 
@@ -283,13 +332,13 @@ Scope:
 
 - E02-S07;
 - final parity report;
-- open-state reservation migration;
+- authoritative open-state reservation migration;
 - authority switch;
 - direct legacy write fencing;
 - compatibility reads/writes only where documented;
-- backup/recovery verifier expanded for all E02 tables.
+- backup/recovery verifier expanded for all E02 evidence tables.
 
-This is the only slice allowed to declare E02 authoritative.
+This is the only slice allowed to declare E02 authoritative globally.
 
 ## Mandatory cutover gate
 
@@ -299,6 +348,7 @@ fresh production SQLite backup PASS
 isolated restore PASS
 final legacy/new reconciliation PASS
 open-order reservation migration PASS
+legacy lock ambiguity disposed/reviewed
 unresolved divergence = 0
 forbidden direct legacy writer scan PASS
 full Release Gate PASS
@@ -306,18 +356,26 @@ full Release Gate PASS
 
 If any fail, stay on old authority.
 
-## Migration numbering rule
+## Canonical migration numbering
 
-Migration numbers are now anchored through version 7 by the prepared execution chain.
+Prepared migration chain through Slice E:
 
 ```text
-1-6 fixed before E02
-7 movement ledger
-8 expected balance projection
-9+ reservations / later additive stock migrations as actually approved
+1  E00 baseline
+2  E01 business_operations
+3  E01 jobs + job_attempts
+4  E01 outbox_events
+5  E01 operation_logs.correlation_id
+6  E11 pricing.floor_override permission
+7  E02 stock movement operations + lines
+8  E02 stock_balances projection
+9  E02 stock_reservations + reservation events
+10+ later additive E02 migrations only when an approved slice requires them
 ```
 
-If Slice C or later needs more than one migration, allocate the next contiguous number and update this document before merging. Never edit/reuse a migration already recorded in production.
+Never edit/reuse a migration already recorded in production.
+
+If implementation discovers Migration 8 genuinely needs to split, stop before publishing Migration 9 and update the canonical chain explicitly; do not silently renumber after release.
 
 ## Merge discipline
 
@@ -343,8 +401,9 @@ Stop the current slice and document a blocker if any of these appear:
 - legacy stock identity cannot be mapped without guessing;
 - shadow divergence cannot be explained;
 - reservation concurrency test oversubscribes;
+- reservation consume and physical issue cannot be made atomic;
 - a migrated route still has an independent direct balance writer;
-- rollback would require discarding posted stock evidence;
+- rollback would require discarding posted stock/reservation evidence;
 - production backup/recovery verifier does not include the new stock truth tables.
 
 ## Exit condition
