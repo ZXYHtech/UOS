@@ -3,7 +3,7 @@
 ## Current state
 
 **Project design coverage:** `E00–E15 COMPLETE AT IMPLEMENTATION-DESIGN LEVEL`  
-**Runtime execution packets:** `E01 COMPLETE / E11 EARLY COMPLETE / E02 A–J COMPLETE`  
+**Runtime execution packets:** `E01 COMPLETE / E11 EARLY COMPLETE / E02 A–J COMPLETE / E03 A–G COMPLETE`  
 **Runtime authority:** still blocked at E00 real-checkout gate.
 
 ```text
@@ -11,7 +11,7 @@ E00  IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 E01  EXECUTION_PACKETS_READY_BLOCKED_BY_E00_GATE
 E11-S01/S02  EXECUTION_PACKETS_READY_BLOCKED_BY_E01
 E02  EXECUTION_PACKETS_A_TO_J_READY_BLOCKED_BY_E01_E11_EARLY_GATES
-E03  DESIGN_READY_BLOCKED_BY_E02_FOUNDATION
+E03  EXECUTION_PACKETS_A_TO_G_READY_BLOCKED_BY_E02_FOUNDATION/AUTHORITY
 E04  DESIGN_READY_BLOCKED_BY_E03_GATE
 E05  DESIGN_READY_BLOCKED_BY_E04_GATE
 E06  DESIGN_READY_BLOCKED_BY_E05_GATE
@@ -91,9 +91,7 @@ E00 Release Safety / Migration / Recovery
 
 ## E01
 
-Index:
-
-`E01_EXECUTION_PACKETS_INDEX.md`
+Index: `E01_EXECUTION_PACKETS_INDEX.md`
 
 Prepared A–F:
 
@@ -108,9 +106,7 @@ F bounded Backup/Pricing/Procurement/Integrations extraction
 
 ## E11 early
 
-Index:
-
-`E11_EARLY_EXECUTION_PACKETS_INDEX.md`
+Index: `E11_EARLY_EXECUTION_PACKETS_INDEX.md`
 
 Prepared:
 
@@ -123,9 +119,7 @@ Historical `margin_percent` arithmetic is preserved; `pricing.floor_override` is
 
 ## E02
 
-Index:
-
-`E02_EXECUTION_PACKETS_INDEX.md`
+Index: `E02_EXECUTION_PACKETS_INDEX.md`
 
 Prepared A–J:
 
@@ -158,17 +152,48 @@ Critical E02 corrections discovered during execution preparation:
 3. count observation remains separate from approved count-adjustment movement.
 4. Slice J is the only stage allowed to declare the new stock kernel globally authoritative.
 
-## Procurement landed-cost prerequisite
+### Procurement landed-cost prerequisite
 
-File:
+`PURCHASE_PARTIAL_RECEIPT_LANDED_COST_SAFETY_REVIEW.md` records a credible risk that repeated partial receipts may repeatedly allocate the full PO-header freight/other amount. Fixture-prove or fix this in a separate bounded PR before E02-H; do not hide a commercial-cost formula change inside stock migration.
 
-`PURCHASE_PARTIAL_RECEIPT_LANDED_COST_SAFETY_REVIEW.md`
+## E03
 
-Static review found a credible risk that repeated partial receipts may repeatedly allocate the full PO-header freight/other amount.
+Index: `E03_EXECUTION_PACKETS_INDEX.md`
 
-This must be fixture-proven or fixed in a separate bounded PR before E02-H. Do not hide a commercial cost formula change inside the stock-ledger migration.
+Prepared A–G:
 
-# Canonical prepared migration chain
+```text
+A Stable warehouse location identity
+B Shared typed scan resolver
+C Receiving staging + putaway
+D Exact-bin picking
+E Location-aware count observation/reconciliation
+F Cycle count + simple putaway/pick policies
+G Mobile/handheld guided scan UX
+```
+
+E03-wide invariants:
+
+```text
+E02 = stock/reservation authority
+E03 = location/task/scan execution evidence
+layout = presentation only
+receipt != putaway
+scan resolution != action authority
+pick confirmation != physical stock issue
+count observation != stock mutation
+```
+
+Critical E03 corrections found in static source review:
+
+1. current layout-box deletion can delete the linked `warehouse_locations` row; E03-A decouples layout lifecycle from business-location identity;
+2. current location edit can change `warehouse_id`; referenced locations become warehouse-immutable;
+3. cross-warehouse relocation must create/use a destination location and move stock through E02, never rewrite historical location ownership;
+4. mobile/offline caches never become authoritative write sources.
+
+E03 schema slices use the **next contiguous migration at implementation time** rather than pre-reserving numbers, because E02-J may legitimately consume the next migration for a separately reviewed final constraint. Expected E03 numbering starts at 10 only if E02-J uses no additional migration.
+
+# Canonical prepared migration chain through E02
 
 ```text
 1  baseline_current_schema_20260810
@@ -180,15 +205,12 @@ This must be fixture-proven or fixed in a separate bounded PR before E02-H. Do n
 7  stock_movement_operations + stock_movement_lines
 8  stock_balances
 9  stock_reservations + stock_reservation_events
-10+ only through later explicitly approved additive migrations
+10+ next contiguous additive migrations assigned from merged main
 ```
 
 Never edit/reuse an applied migration number.
 
 # Architecture invariants by later wave
-
-## E03
-Warehouse scan/tasks validate execution; E02 remains stock authority. Layout is projection, not stock/location truth.
 
 ## E04
 
@@ -236,7 +258,7 @@ SQLite remains default while measured SLOs are healthy. PostgreSQL is conditiona
 
 # Immediate next executable step
 
-The project bottleneck is no longer missing design or E01/E02 execution detail. It remains E00 runtime verification.
+The implementation bottleneck remains E00 runtime verification, not planning detail.
 
 ```text
 1. real checkout inventory/impl/e00-release-safety at exact PR head
@@ -247,4 +269,4 @@ The project bottleneck is no longer missing design or E01/E02 execution detail. 
 6. start E01 Slice A from new main
 ```
 
-Until that happens, E01/E11/E02 runtime implementation remains blocked even though the execution packets are ready.
+Until E00 passes, E01/E11/E02/E03 runtime implementation remains blocked even though execution packets are ready.
