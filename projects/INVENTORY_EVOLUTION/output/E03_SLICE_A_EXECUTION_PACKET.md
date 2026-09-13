@@ -41,7 +41,12 @@ with legacy uniqueness based on warehouse + zone/shelf/box.
 
 `warehouse_layout_items.location_id` references those rows for layout rendering.
 
-Static source review found an important lifecycle coupling: deleting a layout `box` currently can directly delete the corresponding `warehouse_locations` row. Once E02 movement/balance/count evidence references stable location IDs, this behavior is unsafe.
+Static source review found two lifecycle risks in the current route layer:
+
+1. deleting a layout `box` can directly delete the corresponding `warehouse_locations` row;
+2. editing a location can directly change its `warehouse_id`.
+
+Once E02 movement/balance/count evidence references stable location IDs, both behaviors are unsafe.
 
 ## Purpose
 
@@ -80,6 +85,26 @@ Do not encode quality meaning such as ACCEPTED/QUARANTINE/REJECTED in `location_
 
 Changing display data such as zone/shelf/box or layout coordinates must not change historical references.
 
+### Warehouse immutability after use
+
+Once a location has any historical/active reference from stock, movement, count, putaway/pick task or other execution evidence:
+
+```text
+warehouse_id is immutable
+```
+
+A location cannot be reassigned from warehouse A to warehouse B by editing the row.
+
+Correct cross-warehouse change is:
+
+```text
+create/identify destination location in warehouse B
+ -> move stock through E02 transfer/movement semantics
+ -> archive/disable old location when appropriate
+```
+
+A never-used draft location may be corrected through an explicit safe-edit path only if reference checks prove zero business evidence.
+
 ## Migration preflight
 
 Before UNIQUE enforcement, produce a deterministic report for every existing location:
@@ -91,6 +116,7 @@ zone/shelf/box
 proposed location_code
 layout reference count
 current inventory reference count
+historical movement/count/task reference counts where available
 conflict flags
 ```
 
@@ -132,6 +158,8 @@ No new broad permission is required in this slice.
 
 Client-supplied warehouse ID does not establish authority; the server reloads the location and validates its warehouse.
 
+Changing `warehouse_id` for a referenced location is rejected even for an administrator; admin authority does not rewrite historical identity.
+
 ## Expected code touchpoints
 
 Likely additive domain boundary:
@@ -156,14 +184,16 @@ Required deterministic tests:
 
 1. every existing location gets one deterministic proposed code;
 2. duplicate generated code blocks migration;
-3. `location_code` unique within warehouse but may repeat across warehouses only if API always scopes by warehouse (preferred: still encode warehouse context for scan clarity);
+3. `location_code` unique within warehouse but scan/UI remains warehouse-disambiguated;
 4. same location ID survives zone/shelf/box rename;
 5. layout move/coordinate change does not affect location identity;
 6. deleting a referenced layout box does **not** delete the referenced location;
-7. disabled/archived location cannot receive new putaway/pick/count execution;
-8. historical movement/balance/count references remain queryable;
-9. cross-warehouse location use is rejected;
-10. migration repeat is a no-op and full Release Gate passes.
+7. referenced location cannot change warehouse_id;
+8. never-used draft location warehouse correction follows explicit zero-reference safe path;
+9. disabled/archived location cannot receive new putaway/pick/count execution;
+10. historical movement/balance/count references remain queryable;
+11. cross-warehouse location use is rejected;
+12. migration repeat is a no-op and full Release Gate passes.
 
 ## Rollback
 
@@ -178,10 +208,11 @@ Stop this slice if:
 - legacy locations cannot be assigned deterministic codes without operator choice;
 - a location row points to another warehouse through existing inventory/layout evidence;
 - hard-delete behavior remains reachable for historically referenced locations;
+- referenced location warehouse_id can still be edited;
 - E02 position identity would need rewriting merely because a display label changed.
 
 ## Exit / unlock
 
-Slice A completes when warehouse locations have stable operational identity and layout rendering is no longer the owner of location lifecycle.
+Slice A completes when warehouse locations have stable operational identity, warehouse membership cannot be rewritten after use, and layout rendering is no longer the owner of location lifecycle.
 
 Unlocks E03-B typed scan resolution and later location-aware execution.
