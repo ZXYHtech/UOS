@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E01_S06 — Worker CLI / Service Runtime
 
 ## Status
@@ -310,5 +312,5 @@ Runtime implementation remains blocked until:
 
 ```text
 E00 real-checkout Release Gate = PASS
-AND Inventory PR #3 reviewed/merged
+AND Inventory legacy PR #3 (superseded; do not merge) reviewed/merged
 ```

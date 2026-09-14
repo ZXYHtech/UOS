@@ -1,10 +1,12 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E00_S02 — Representative Old-Database Migration Fixtures
 
 ## Status
 
 `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
 
-External implementation is on `ZXYHtech/inventory:impl/e00-release-safety` in PR #3; reviewed head `61d486d9c1323d65694e7d7c0f6f3078eaf60045`.
+External implementation is on `ZXYHtech/inventory-Pro:impl/e00-release-safety` in legacy PR #3 (superseded; do not merge); reviewed head `61d486d9c1323d65694e7d7c0f6f3078eaf60045`.
 
 ## Implemented evidence
 

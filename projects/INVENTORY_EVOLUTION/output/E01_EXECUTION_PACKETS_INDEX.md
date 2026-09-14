@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E01 Execution Packets Index
 
 ## Status
@@ -11,7 +13,7 @@ This is the handoff index for actual E01 implementation after E00 is verified an
 Do not start runtime E01 work until:
 
 ```text
-Inventory PR #3 exact head checked out
+Inventory legacy PR #3 (superseded; do not merge) exact head checked out
  -> python3 tools/verify_release.py = PASS
  -> python3 tools/verify_release.py --require-bash = PASS on Linux release host
  -> no unresolved PR blocker

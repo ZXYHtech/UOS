@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E06 Implementation Sequence — Frozen Configuration, Controlled Material, Real Output
 
 ## Status

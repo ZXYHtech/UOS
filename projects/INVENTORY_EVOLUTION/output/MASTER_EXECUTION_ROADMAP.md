@@ -1,3 +1,18 @@
+# Current execution override — 2026-09-14
+
+- Active implementation: `ZXYHtech/inventory-Pro`, start from its current `main`.
+- Old E00 source `0e08704` is preserved as import provenance, NOT the current Pro HEAD.
+- The old inventory PR #3 must NOT be merged as part of this project.
+- Next: verify isolation, reproduce/fix E00 failures, pass Pro local gates, then begin E01.
+- No production backup/preflight/cutover is authorized. Use isolated fixtures/test infrastructure.
+- Local audit 2026-09-14: recovery + backup-job tests failed on macOS; snapshot test passed
+  with canonical /private/tmp. Target Linux execution is still unverified.
+- The remaining content is retained design/history; follow REPOSITORY_ISOLATION.md on conflict.
+
+---
+
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # INVENTORY_EVOLUTION — Master Execution Roadmap
 
 ## Status
@@ -22,7 +37,7 @@ This document is the execution index for E00–E15. It does not replace the stor
 ## 2. Current blocking gate
 
 ```text
-Inventory PR #3
+Inventory legacy PR #3 (superseded; do not merge)
 branch impl/e00-release-safety
 head 0e0870499f7e8b5e68a308231eae954f106bd5aa
 state Draft/Open/Mergeable
@@ -41,7 +56,7 @@ Required result:
 RELEASE VERIFICATION: PASS
 ```
 
-No later runtime wave may merge before E00 passes and PR #3 has no unresolved blocker.
+No later runtime wave may merge before E00 passes and legacy PR #3 (superseded; do not merge) has no unresolved blocker.
 
 ## 3. Wave dependency graph
 
@@ -578,10 +593,10 @@ Later waves extending controlled RF artifacts must extend recovery scope so DB a
 Current next action is not another design wave.
 
 ```text
-1. real checkout of Inventory PR #3
+1. real checkout of Inventory legacy PR #3 (superseded; do not merge)
 2. run repository-local E00 Release Gate
 3. resolve failures if any
-4. review PR #3 blockers
+4. review legacy PR #3 (superseded; do not merge) blockers
 5. merge E00 only after PASS
 6. execute backup-only production preflight against authorized production host/copy
 7. only then begin E01 Slice A on a new dedicated branch/PR

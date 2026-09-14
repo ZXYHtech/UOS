@@ -1,3 +1,18 @@
+# Current execution override — 2026-09-14
+
+- Active implementation: `ZXYHtech/inventory-Pro`, start from its current `main`.
+- Old E00 source `0e08704` is preserved as import provenance, NOT the current Pro HEAD.
+- The old inventory PR #3 must NOT be merged as part of this project.
+- Next: verify isolation, reproduce/fix E00 failures, pass Pro local gates, then begin E01.
+- No production backup/preflight/cutover is authorized. Use isolated fixtures/test infrastructure.
+- Local audit 2026-09-14: recovery + backup-job tests failed on macOS; snapshot test passed
+  with canonical /private/tmp. Target Linux execution is still unverified.
+- The remaining content is retained design/history; follow REPOSITORY_ISOLATION.md on conflict.
+
+---
+
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # INVENTORY_EVOLUTION — Implementation Status
 
 ## Current state
@@ -28,12 +43,12 @@ E15  DESIGN_READY_CONDITIONAL_NOT_SCHEDULED
 
 ## External implementation / safety baseline
 
-- repo: `ZXYHtech/inventory`
+- repo: `ZXYHtech/inventory-Pro`
 - audited pre-E00 baseline/main: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 - frozen pre-audit branch: `backup/pre-e00-audit-20260911`
 - E00 implementation branch: `impl/e00-release-safety`
 - reviewed/current PR head: `0e0870499f7e8b5e68a308231eae954f106bd5aa`
-- PR: `ZXYHtech/inventory#3`
+- PR: `legacy inventory#3 (historical only; do not merge)`
 - latest connector check: `2026-09-14`, `open`, `draft=true`, `mergeable=true`, `merged=false`
 
 Do **not** mark E00 complete until the repository-local gate runs from a real checkout and passes:
@@ -261,9 +276,9 @@ SQLite remains default while measured SLOs are healthy. PostgreSQL is conditiona
 The implementation bottleneck remains E00 runtime verification, not planning detail.
 
 ```text
-1. real checkout inventory/impl/e00-release-safety at exact PR head
+1. real checkout inventory-Pro/main at its exact recorded head
 2. run repository-local Release Gate
-3. if PASS, review PR #3 blockers
+3. if PASS, review legacy PR #3 (superseded; do not merge) blockers
 4. merge E00 safely
 5. execute fresh production backup-only preflight before any server cutover
 6. start E01 Slice A from new main

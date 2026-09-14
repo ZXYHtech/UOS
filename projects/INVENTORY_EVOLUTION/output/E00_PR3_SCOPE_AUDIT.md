@@ -1,4 +1,6 @@
-# E00 PR #3 Scope Audit
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
+# E00 legacy PR #3 (superseded; do not merge) Scope Audit
 
 ## Result
 
@@ -9,7 +11,7 @@ This is a scope-boundary review, not a substitute for the real Release Gate.
 ## PR identity
 
 ```text
-repo: ZXYHtech/inventory
+repo: ZXYHtech/inventory-Pro
 PR: #3
 base: main @ 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
 head: impl/e00-release-safety @ 0e0870499f7e8b5e68a308231eae954f106bd5aa
@@ -79,7 +81,7 @@ No changed file path indicates runtime implementation of later business epics su
 
 ## Merge boundary
 
-PR #3 may only be considered for merge after:
+legacy PR #3 (superseded; do not merge) may only be considered for merge after:
 
 ```text
 real checkout Release Gate PASS
@@ -88,4 +90,4 @@ real checkout Release Gate PASS
 
 Mergeability alone does not satisfy E00.
 
-After E00 merges, E01 starts on a new dedicated implementation branch/PR rather than extending PR #3.
+After E00 merges, E01 starts on a new dedicated implementation branch/PR rather than extending legacy PR #3 (superseded; do not merge).

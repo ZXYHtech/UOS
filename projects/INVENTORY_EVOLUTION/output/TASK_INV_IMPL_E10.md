@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E10 — Technical CRM, Quote, Sample, Service Case & RMA
 
 ## Status

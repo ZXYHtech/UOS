@@ -1,3 +1,18 @@
+# Current execution override — 2026-09-14
+
+- Active implementation: `ZXYHtech/inventory-Pro`, start from its current `main`.
+- Old E00 source `0e08704` is preserved as import provenance, NOT the current Pro HEAD.
+- The old inventory PR #3 must NOT be merged as part of this project.
+- Next: verify isolation, reproduce/fix E00 failures, pass Pro local gates, then begin E01.
+- No production backup/preflight/cutover is authorized. Use isolated fixtures/test infrastructure.
+- Local audit 2026-09-14: recovery + backup-job tests failed on macOS; snapshot test passed
+  with canonical /private/tmp. Target Linux execution is still unverified.
+- The remaining content is retained design/history; follow REPOSITORY_ISOLATION.md on conflict.
+
+---
+
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E00 Local Verification Handoff
 
 ## Purpose
@@ -6,10 +21,10 @@ E00 code is implemented and statically hardened, but must **not** be marked comp
 
 Inventory implementation:
 
-- repo: `ZXYHtech/inventory`
+- repo: `ZXYHtech/inventory-Pro`
 - branch: `impl/e00-release-safety`
 - expected reviewed head: `0e0870499f7e8b5e68a308231eae954f106bd5aa`
-- PR: `ZXYHtech/inventory#3` (Draft)
+- PR: `legacy inventory#3 (historical only; do not merge)` (Draft)
 - frozen pre-E00 source: `backup/pre-e00-audit-20260911` -> `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 
 No GitHub Actions run is required or accepted as the unique correctness path.
@@ -18,8 +33,8 @@ No GitHub Actions run is required or accepted as the unique correctness path.
 
 ```bash
 git fetch origin
-git switch impl/e00-release-safety
-git pull --ff-only origin impl/e00-release-safety
+git switch main
+git pull --ff-only origin main
 git rev-parse HEAD
 ```
 
@@ -29,7 +44,7 @@ Expected head:
 0e0870499f7e8b5e68a308231eae954f106bd5aa
 ```
 
-If the branch intentionally advances, record the newer SHA and verify PR #3 contains it before running the gate.
+If the branch intentionally advances, record the newer SHA and verify legacy PR #3 (superseded; do not merge) contains it before running the gate.
 
 ## 2. Minimum authoritative E00 gate
 
@@ -195,7 +210,7 @@ Only after:
 
 ```text
 real checkout Release Gate = PASS
-AND PR #3 has no unresolved blocker
+AND legacy PR #3 (superseded; do not merge) has no unresolved blocker
 ```
 
 may E00 move to complete and E01 runtime implementation begin.

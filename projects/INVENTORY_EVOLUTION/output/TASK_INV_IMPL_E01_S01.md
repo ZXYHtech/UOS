@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E01_S01 — Shared API / Domain Primitives
 
 ## Status
@@ -10,7 +12,7 @@ Extract the minimum reusable request/domain scaffolding needed by later E01 stor
 
 This design is grounded in the audited current implementation at:
 
-`ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
+`ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 
 ## Current primitives to preserve
 
@@ -197,5 +199,5 @@ Implementation starts only after:
 
 ```text
 E00 real-checkout Release Gate = PASS
-AND Inventory PR #3 reviewed/merged
+AND Inventory legacy PR #3 (superseded; do not merge) reviewed/merged
 ```

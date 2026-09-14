@@ -1,10 +1,12 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E00_S07 — Off-host Backup Copy + Health + Scheduler Path
 
 ## Status
 
 `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
 
-External implementation: `ZXYHtech/inventory#3`, branch `impl/e00-release-safety`, reviewed head `7a8e0adcc0bf4f8fddba4688802ef2486f18f56c`.
+External implementation: `legacy inventory#3 (historical only; do not merge)`, branch `impl/e00-release-safety`, reviewed head `7a8e0adcc0bf4f8fddba4688802ef2486f18f56c`.
 
 ## Operational flow
 

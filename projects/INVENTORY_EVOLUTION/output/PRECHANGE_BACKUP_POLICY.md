@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # INVENTORY_EVOLUTION — Pre-change Backup Policy
 
 ## Status
@@ -15,7 +17,7 @@ The source version that existed before the E00 audit must remain permanently add
 
 Current frozen reference:
 
-- repository: `ZXYHtech/inventory`
+- repository: `ZXYHtech/inventory-Pro`
 - backup branch: `backup/pre-e00-audit-20260911`
 - pinned commit: `78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 

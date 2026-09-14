@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E02 — Stock Position, Movement Ledger & Reservation Kernel
 
 ## Status
@@ -32,7 +34,7 @@ E02 branches from the then-current `main`.
 
 ## Confirmed baseline risks
 
-Pinned audit/source baseline: `ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
+Pinned audit/source baseline: `ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
 
 ### Current balance identity
 

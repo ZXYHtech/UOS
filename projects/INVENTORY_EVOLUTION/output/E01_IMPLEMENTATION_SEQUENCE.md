@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E01 Implementation Sequence — Small PR / Gate Strategy
 
 ## Status
@@ -12,7 +14,7 @@ Do not create/merge E01 runtime implementation until:
 
 ```text
 Inventory E00 branch Release Gate = PASS
-AND Inventory PR #3 reviewed/merged to main
+AND Inventory legacy PR #3 (superseded; do not merge) reviewed/merged to main
 ```
 
 Then branch from the new `main`, never from the old `78d5cda...` baseline.

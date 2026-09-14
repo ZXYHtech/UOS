@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E00_S01 — Schema Version + Numbered Immutable Migration Runner
 
 ## Status
@@ -6,9 +8,9 @@
 
 External implementation:
 
-- repo: `ZXYHtech/inventory`
+- repo: `ZXYHtech/inventory-Pro`
 - branch: `impl/e00-release-safety`
-- PR: `ZXYHtech/inventory#3`
+- PR: `legacy inventory#3 (historical only; do not merge)`
 - reviewed implementation head: `61d486d9c1323d65694e7d7c0f6f3078eaf60045`
 
 ## Implemented contract

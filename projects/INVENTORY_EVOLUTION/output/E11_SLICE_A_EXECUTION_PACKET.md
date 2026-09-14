@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E11 Slice A Execution Packet — Pricing Semantics / Margin vs Markup Safety
 
 ## Status

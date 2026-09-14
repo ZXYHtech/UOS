@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. [Repository isolation](REPOSITORY_ISOLATION.md) overrides old production/PR instructions.
+
 # Inventory Evolution — No GitHub Actions Runtime Dependency
 
 ## Rule

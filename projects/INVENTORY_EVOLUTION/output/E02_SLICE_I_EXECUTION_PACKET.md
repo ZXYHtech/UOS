@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E02 Slice I Execution Packet — Manual Adjustment / Inventory Count Bridge
 
 ## Status

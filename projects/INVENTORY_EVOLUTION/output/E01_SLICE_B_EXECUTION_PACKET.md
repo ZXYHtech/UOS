@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E01 Slice B Execution Packet — Business Operation Idempotency
 
 ## Status
@@ -12,7 +14,7 @@ All must be true:
 
 ```text
 E00 real-checkout Release Gate = PASS
-Inventory PR #3 merged
+Inventory legacy PR #3 (superseded; do not merge) merged
 E01 Slice A merged to main
 new branch created from current main
 ```

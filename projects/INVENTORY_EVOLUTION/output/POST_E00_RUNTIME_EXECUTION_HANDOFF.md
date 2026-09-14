@@ -1,3 +1,18 @@
+# Current execution override — 2026-09-14
+
+- Active implementation: `ZXYHtech/inventory-Pro`, start from its current `main`.
+- Old E00 source `0e08704` is preserved as import provenance, NOT the current Pro HEAD.
+- The old inventory PR #3 must NOT be merged as part of this project.
+- Next: verify isolation, reproduce/fix E00 failures, pass Pro local gates, then begin E01.
+- No production backup/preflight/cutover is authorized. Use isolated fixtures/test infrastructure.
+- Local audit 2026-09-14: recovery + backup-job tests failed on macOS; snapshot test passed
+  with canonical /private/tmp. Target Linux execution is still unverified.
+- The remaining content is retained design/history; follow REPOSITORY_ISOLATION.md on conflict.
+
+---
+
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # Post-E00 Runtime Execution Handoff
 
 ## Status
@@ -11,7 +26,7 @@ This is the shortest operational handoff for moving from the current E00 draft i
 Inventory PR:
 
 ```text
-repo: ZXYHtech/inventory
+repo: ZXYHtech/inventory-Pro
 PR: #3
 branch: impl/e00-release-safety
 head: 0e0870499f7e8b5e68a308231eae954f106bd5aa
@@ -29,8 +44,8 @@ From a real checkout of the exact PR head:
 
 ```bash
 git fetch origin
-git switch impl/e00-release-safety
-git pull --ff-only origin impl/e00-release-safety
+git switch main
+git pull --ff-only origin main
 git rev-parse HEAD
 python3 tools/verify_release.py
 python3 tools/verify_release.py --require-bash
@@ -44,7 +59,7 @@ both required commands exit 0 / PASS
 no unresolved review blocker
 ```
 
-Then merge PR #3.
+Then review and integrate the separately verified Pro change; never merge the old inventory PR #3.
 
 Before any production server cutover, independently run fresh pre-change protection:
 

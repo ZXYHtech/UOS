@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E00 Gate Attempt Log
 
 ## 2026-09-11 — current execution environment
@@ -14,21 +16,21 @@ python3 tools/verify_release.py --require-bash
 against a real checkout of:
 
 ```text
-repo: ZXYHtech/inventory
+repo: ZXYHtech/inventory-Pro
 branch: impl/e00-release-safety
-expected/current PR #3 head: 0e0870499f7e8b5e68a308231eae954f106bd5aa
+expected/current legacy PR #3 (superseded; do not merge) head: 0e0870499f7e8b5e68a308231eae954f106bd5aa
 ```
 
 ### Connectivity probe actually executed
 
 ```bash
-git ls-remote https://github.com/ZXYHtech/inventory.git HEAD
+git ls-remote https://github.com/ZXYHtech/inventory-Pro.git HEAD
 ```
 
 Observed result:
 
 ```text
-fatal: unable to access 'https://github.com/ZXYHtech/inventory.git/':
+fatal: unable to access 'https://github.com/ZXYHtech/inventory-Pro.git/':
 Could not resolve host: github.com
 ```
 
@@ -60,8 +62,8 @@ On any authorized machine with a real checkout and repository access:
 
 ```bash
 git fetch origin
-git switch impl/e00-release-safety
-git pull --ff-only origin impl/e00-release-safety
+git switch main
+git pull --ff-only origin main
 git rev-parse HEAD
 python3 tools/verify_release.py
 python3 tools/verify_release.py --require-bash

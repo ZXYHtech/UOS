@@ -1,8 +1,10 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. [Repository isolation](REPOSITORY_ISOLATION.md) overrides old production/PR instructions.
+
 # INVENTORY_EVOLUTION — Requirements & Execution Plan
 
 ## 1. Purpose
 
-This project executes the completed `INVENTORY_DEEP_AUDIT` recommendations against `ZXYHtech/inventory` in dependency order.
+This project executes the completed `INVENTORY_DEEP_AUDIT` recommendations against `ZXYHtech/inventory-Pro` in dependency order.
 
 Audit source:
 
@@ -38,7 +40,7 @@ SQLite remains the primary database until measured write contention, HA/PITR, da
 7. AI/rules do not bypass normal permission/state/idempotency gates.
 8. Historical lot/serial/BOM/cost evidence is never fabricated during migration.
 9. Every story has local test evidence and explicit coexistence/rollback behavior.
-10. Implementation changes occur on dedicated `ZXYHtech/inventory` branches/PRs; UOS stores orchestration/evidence/status artifacts.
+10. Implementation changes occur on dedicated `ZXYHtech/inventory-Pro` branches/PRs; UOS stores orchestration/evidence/status artifacts.
 
 ## 4. Epic sequence
 

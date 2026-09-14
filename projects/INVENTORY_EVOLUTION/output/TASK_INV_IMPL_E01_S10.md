@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E01_S10 — Domain Module Extraction
 
 ## Status
@@ -12,7 +14,7 @@ This story is **physical modularization**, not a business redesign. E02 will red
 
 ## Source evidence / current concentration
 
-Current baseline `ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c` still centralizes many unrelated responsibilities in `inventory_app/services.py`, while `server.py` imports a large service surface including `BackupService`, `PricingService`, `ProcurementService`, `PlatformAccountService`, `ShipmentService`, `TransferService` and others.
+Current baseline `ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c` still centralizes many unrelated responsibilities in `inventory_app/services.py`, while `server.py` imports a large service surface including `BackupService`, `PricingService`, `ProcurementService`, `PlatformAccountService`, `ShipmentService`, `TransferService` and others.
 
 The existing repository already contains useful seams that should be promoted rather than rewritten:
 

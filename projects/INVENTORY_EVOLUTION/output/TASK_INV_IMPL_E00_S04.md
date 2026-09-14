@@ -1,10 +1,12 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E00_S04 — Local `verify_release` Command
 
 ## Status
 
 `IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
 
-External implementation: `ZXYHtech/inventory#3`, branch `impl/e00-release-safety`.
+External implementation: `legacy inventory#3 (historical only; do not merge)`, branch `impl/e00-release-safety`.
 
 Static hardening reviewed through inventory head `61d486d9c1323d65694e7d7c0f6f3078eaf60045`.
 

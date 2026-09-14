@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E01_S03 — Pilot High-risk Routes on Action Wrapper
 
 ## Status
@@ -10,7 +12,7 @@ Prove the Action Policy wrapper on a small set of existing write paths before wi
 
 This design is now bound to the audited pre-E00 code at:
 
-`ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
+`ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`
 
 so implementation can preserve current route/service behavior rather than inventing new endpoints.
 
@@ -228,5 +230,5 @@ Runtime implementation remains blocked until:
 
 ```text
 E00 real-checkout Release Gate = PASS
-AND Inventory PR #3 is reviewed/merged
+AND Inventory legacy PR #3 (superseded; do not merge) is reviewed/merged
 ```

@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E11_S01 — Pricing Formula Semantics & Legacy Rule Safety
 
 ## Status
@@ -12,7 +14,7 @@ This story is intentionally placed early in the implementation tranche because t
 
 ## Confirmed current behavior
 
-Pinned baseline evidence: `ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
+Pinned baseline evidence: `ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
 
 `PricingService` currently declares:
 

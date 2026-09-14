@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E11_S02 — Floor Price, Deal-price Override & Commercial Approval Safety
 
 ## Status
@@ -12,7 +14,7 @@ This story builds on the current useful price-revision behavior instead of repla
 
 ## Confirmed current behavior
 
-Pinned baseline: `ZXYHtech/inventory@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
+Pinned baseline: `ZXYHtech/inventory-Pro@78d5cda2527cf24836cd5b82a41f02ca8efdd02c`.
 
 Current pricing already supports a `floor` material price type and `PricingService.record_deal_price()` already requires a `change_reason` and writes immutable `order_item_price_revisions` plus an operation log.
 

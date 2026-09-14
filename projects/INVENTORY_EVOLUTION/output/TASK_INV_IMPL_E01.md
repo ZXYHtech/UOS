@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # TASK_INV_IMPL_E01 — Core Modularization, Action Policy & Durable Jobs
 
 ## Status
@@ -390,7 +392,7 @@ All tests belong in the same repository-local release gate introduced by E00.
 ## 11. Rollout sequence
 
 ```text
-E00 PASS + PR #3 merged
+E00 PASS + legacy PR #3 (superseded; do not merge) merged
  -> add E01 infrastructure migrations only
  -> add tests for infrastructure
  -> pilot one low-risk job
@@ -431,7 +433,7 @@ Implementation of this design may begin only after:
 
 ```text
 E00 tools/verify_release.py = PASS
-AND Inventory PR #3 reviewed/merged
+AND Inventory legacy PR #3 (superseded; do not merge) reviewed/merged
 ```
 
 Until then this document remains design evidence only.

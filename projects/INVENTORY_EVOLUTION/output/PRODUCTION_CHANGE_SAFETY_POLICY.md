@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # Inventory Lite Production Change Safety Policy
 
 ## Status
@@ -33,7 +35,7 @@ For a real cutover, running Web/OCR/background writers are also stopped **before
 The code state that existed before E00 implementation is frozen at:
 
 ```text
-repo: ZXYHtech/inventory
+repo: ZXYHtech/inventory-Pro
 branch: backup/pre-e00-audit-20260911
 commit: 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
 ```

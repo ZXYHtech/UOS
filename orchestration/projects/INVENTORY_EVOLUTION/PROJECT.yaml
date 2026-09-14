@@ -1,8 +1,8 @@
 Schema: UOS_PROJECT_V1
 ProjectID: INVENTORY_EVOLUTION
-Title: Inventory Lite — controlled evolution implementation
+Title: Inventory Pro — isolated modular evolution
 State: ACTIVE
-IntentVersion: INVENTORY_EVOLUTION_V1_20260911
+IntentVersion: INVENTORY_PRO_ISOLATED_V2_20260914
 RepositoryMode: SAME_REPOSITORY
 WorkRoot: projects/INVENTORY_EVOLUTION
 Goal: Execute the approved Inventory Lite deep-audit roadmap incrementally, starting with release safety, migrations, recovery, action policy, idempotency and the stock/reservation kernel, while preserving current operator workflows and avoiding a big-bang rewrite.
@@ -11,8 +11,8 @@ AuditSourceRef: 8287a98328d9409e6a1051194e9dcb9a052b9a74
 AuditSourcePR: https://github.com/ZXYHtech/UOS/pull/1
 AuditPrimaryReport: projects/INVENTORY_DEEP_AUDIT/output/TASK_INV_AUDIT_FINAL_REPORT_01.md
 ImplementationBacklog: projects/INVENTORY_DEEP_AUDIT/output/TASK_INV_AUDIT_IMPLEMENTATION_BACKLOG_01.md
-ExternalImplementationRepository: https://github.com/ZXYHtech/inventory
-ExternalImplementationBaseline: 78d5cda2527cf24836cd5b82a41f02ca8efdd02c
+ExternalImplementationRepository: https://github.com/ZXYHtech/inventory-Pro
+ExternalImplementationBaseline: 0e0870499f7e8b5e68a308231eae954f106bd5aa
 ExternalImplementationBranchPrefix: impl/
 ExternalImplementationMode: WRITE_ON_DEDICATED_BRANCHES_WITH_PR
 GitHubActionsDependency: FORBIDDEN
@@ -24,11 +24,15 @@ OperatorDecisionRegister: projects/INVENTORY_EVOLUTION/output/OPERATOR_DECISION_
 OperatorConstraintRef: projects/INVENTORY_EVOLUTION/NO_GITHUB_ACTIONS_POLICY.md
 ArchitectureChoice: MODULAR_MONOLITH_PLUS_DURABLE_WORKER
 DatabasePolicy: KEEP_SQLITE_UNTIL_MEASURED_SCALE_OR_HA_TRIGGER_JUSTIFIES_POSTGRESQL
-FirstImplementationBranch: impl/e00-release-safety
+FirstImplementationBranch: main
 PlanningCoverage: E00_THROUGH_E15_STORY_AND_SEQUENCE_DESIGN_COMPLETE
-CurrentExecutionGate: E00_REAL_CHECKOUT_RELEASE_VERIFICATION_REQUIRED
-CurrentExternalPR: https://github.com/ZXYHtech/inventory/pull/3
-CurrentExternalPRState: DRAFT_OPEN_NOT_MERGED
+CurrentExecutionGate: PRO_ISOLATION_AND_E00_REAL_CHECKOUT_VERIFICATION_REQUIRED
+HistoricalExternalPR: https://github.com/ZXYHtech/inventory/pull/3
+HistoricalExternalPRPolicy: SUPERSEDED_DO_NOT_MERGE
+RepositoryIsolationRef: projects/INVENTORY_EVOLUTION/REPOSITORY_ISOLATION.md
+LegacyProductionRepository: https://github.com/ZXYHtech/inventory
+LegacyProductionAccess: READ_ONLY
+ProductionDeploymentAuthorized: false
 NonGoals:
   - No big-bang rewrite
   - No microservice split during foundation phase
@@ -46,3 +50,6 @@ AcceptanceSummary:
   - Every production cutover first captures current deployed code and a consistent production DB backup and proves isolated restore
   - Human/operator policy decisions are recorded in OPERATOR_DECISION_REGISTER rather than guessed in code
   - No required validation or runtime path depends on GitHub Actions
+
+ImplementationImportCommit: 74a3242
+IsolationVerificationTask: TASK_INV_PRO_ISOLATION_VERIFY_01

@@ -1,3 +1,5 @@
+> Execution target: **ZXYHtech/inventory-Pro** only. Read [repository isolation](../REPOSITORY_ISOLATION.md) before acting; old production/PR instructions below are superseded.
+
 # E02 Implementation Sequence — Shadow First, Cut Over Last
 
 ## Status
@@ -9,7 +11,7 @@
 Do not create E02 runtime implementation until all are true:
 
 ```text
-E00 Release Gate PASS and PR #3 merged
+E00 Release Gate PASS and legacy PR #3 (superseded; do not merge) merged
 E01 slices complete/merged
 E11-S01 pricing semantics safety complete
 E11-S02 floor/override safety complete
